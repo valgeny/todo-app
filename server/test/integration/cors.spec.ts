@@ -17,7 +17,7 @@ describe('CORS', () => {
     await stopTestApp();
   });
 
-  it('allows CORS only for localhost and Codespaces origins', negative, async (t) => {
+  it('allows CORS only for localhost and Codespaces origins', negative, async t => {
     const api = createApi(app, t);
 
     const allowed = await api.get(endpoint('/health')).set('Origin', baseUrl).expect(204);
@@ -34,7 +34,10 @@ describe('CORS', () => {
     const codespace = await api.get(endpoint('/health')).set('Origin', codespaceOrigin).expect(204);
     assert.equal(codespace.headers['access-control-allow-origin'], codespaceOrigin);
 
-    const blocked = await api.get(endpoint('/health')).set('Origin', 'https://example.com').expect(204);
+    const blocked = await api
+      .get(endpoint('/health'))
+      .set('Origin', 'https://example.com')
+      .expect(204);
     assert.equal(blocked.headers['access-control-allow-origin'], undefined);
   });
 });

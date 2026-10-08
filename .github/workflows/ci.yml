@@ -10,6 +10,11 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
 jobs:
   build-and-test:
     name: Build and test
@@ -23,11 +28,16 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: yarn
 
       - name: Install dependencies
         run: yarn install --frozen-lockfile
+
+      - name: Prepare env files
+        run: |
+          cp web/config/.env.example web/config/.env.local
+          test -f server/config/.env.test
 
       - name: Lint
         run: yarn lint
@@ -44,18 +54,92 @@ jobs:
       - name: End-to-end tests
         run: yarn test:e2e
 
-      - name: Upload Allure report
+      # Phase 1: downloadable Actions artifacts (PRs and main)
+      - name: Upload Allure report artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: allure-report
           path: allure-report/
           if-no-files-found: ignore
+          retention-days: 14
 
-      - name: Upload Playwright report
+      - name: Upload Playwright report artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
           path: playwright-report/
           if-no-files-found: ignore
+          retention-days: 14
+
+      # Phase 2 prep: package a static site for GitHub Pages (main only)
+      - name: Assemble report site
+        id: assemble
+        if: ${{ always() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        run: |
+          set -euo pipefail
+          rm -rf report-site
+          mkdir -p report-site
+          links=''
+
+          if [ -d allure-report ] && [ -f allure-report/index.html ]; then
+            cp -R allure-report report-site/allure
+            links="${links}<li><a href=\"./allure/\">Integration (Allure)</a></li>"
+          fi
+
+          if [ -d playwright-report ] && [ -f playwright-report/index.html ]; then
+            cp -R playwright-report report-site/playwright
+            links="${links}<li><a href=\"./playwright/\">End-to-end (Playwright)</a></li>"
+          fi
+
+          if [ -z "$links" ]; then
+            links='<li>No HTML reports were produced for this run.</li>'
+          fi
+
+          REPORT_LINKS="$links" node -e '
+            const { writeFileSync } = require("node:fs");
+            const links = process.env.REPORT_LINKS || "";
+            writeFileSync(
+              "report-site/index.html",
+              `<!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="utf-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1" />
+            <title>Todo App test reports</title>
+            <style>
+              body { font: 16px/1.5 system-ui, sans-serif; margin: 2rem; color: #111; }
+              a { color: #0969da; }
+              li { margin: 0.5rem 0; }
+            </style>
+          </head>
+          <body>
+            <h1>Todo App test reports</h1>
+            <p>Latest CI reports from <code>main</code>.</p>
+            <ul>${links}</ul>
+          </body>
+          </html>
+          `
+            );
+          '
+
+      - name: Upload GitHub Pages artifact
+        if: ${{ always() && steps.assemble.outcome == 'success' }}
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: report-site
+
+  deploy-reports:
+    name: Deploy reports to GitHub Pages
+    needs: build-and-test
+    # Publish even when tests failed, as long as the Pages artifact was uploaded.
+    if: ${{ always() && github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.build-and-test.result != 'cancelled' && needs.build-and-test.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
