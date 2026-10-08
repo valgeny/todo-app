@@ -80,12 +80,14 @@ const attachHttpExchange = (t: TestContext, req: Test, res: Response): void => {
 };
 
 const instrument = (t: TestContext, req: Test): Test => {
-  const originalThen = req.then.bind(req);
-  (req as Test & { then: typeof req.then }).then = ((onFulfilled, onRejected) =>
-    originalThen(async (res: Response) => {
-      attachHttpExchange(t, req, res);
-      return res;
-    }).then(onFulfilled, onRejected)) as typeof req.then;
+  const originalEnd = req.end.bind(req);
+  req.end = ((callback?: (err: Error, res: Response) => void) =>
+    originalEnd((err: Error, res: Response) => {
+      if (res) {
+        attachHttpExchange(t, req, res);
+      }
+      callback?.(err, res);
+    })) as typeof req.end;
   return req;
 };
 
@@ -101,11 +103,11 @@ export type ApiClient = {
 export const createApi = (app: Application, t: TestContext): ApiClient => {
   const agent = request(app);
   return {
-    get: (url) => instrument(t, agent.get(url)),
-    post: (url) => instrument(t, agent.post(url)),
-    put: (url) => instrument(t, agent.put(url)),
-    patch: (url) => instrument(t, agent.patch(url)),
-    delete: (url) => instrument(t, agent.delete(url)),
-    options: (url) => instrument(t, agent.options(url))
+    get: url => instrument(t, agent.get(url)),
+    post: url => instrument(t, agent.post(url)),
+    put: url => instrument(t, agent.put(url)),
+    patch: url => instrument(t, agent.patch(url)),
+    delete: url => instrument(t, agent.delete(url)),
+    options: url => instrument(t, agent.options(url))
   };
 };

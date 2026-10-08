@@ -10,7 +10,7 @@
     "test": "APP_ENV=test NODE_ENV=test sh -c 'rm -rf allure-results && c8 node --require ts-node/register/transpile-only --require tsconfig-paths/register --require reflect-metadata --test --test-timeout=10000 --test-reporter=spec --test-reporter=allure-node-test/reporter --test-reporter-destination=stdout --test-reporter-destination=stdout test/integration/todoApi.spec.ts test/integration/todoService.spec.ts test/integration/cors.spec.ts; status=$?; rm -rf ../allure-report && allure generate allure-results -o ../allure-report --name \"Integration report\" && exit $status'"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=24.0.0"
   },
   "license": "UNLICENSED",
   "dependencies": {

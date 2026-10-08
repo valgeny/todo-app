@@ -18,12 +18,12 @@ describe('todo API', () => {
     await stopTestApp();
   });
 
-  it('returns 204 on health', positive, async (t) => {
+  it('returns 204 on health', positive, async t => {
     const api = createApi(app, t);
     await api.get(endpoint('/health')).expect(204);
   });
 
-  it('creates, lists, and views a todo', positive, async (t) => {
+  it('creates, lists, and views a todo', positive, async t => {
     const api = createApi(app, t);
     const created = await api
       .post(endpoint('/api/v0/todos'))
@@ -43,9 +43,12 @@ describe('todo API', () => {
     assert.equal(viewed.body.title, 'Write tests');
   });
 
-  it('updates fields, toggles completion, and deletes', positive, async (t) => {
+  it('updates fields, toggles completion, and deletes', positive, async t => {
     const api = createApi(app, t);
-    const created = await api.post(endpoint('/api/v0/todos')).send({ title: 'Ship it' }).expect(201);
+    const created = await api
+      .post(endpoint('/api/v0/todos'))
+      .send({ title: 'Ship it' })
+      .expect(201);
     const id = created.body.todoId as string;
 
     const updated = await api
@@ -71,17 +74,23 @@ describe('todo API', () => {
     await api.get(endpoint(`/api/v0/todos/${id}`)).expect(404);
   });
 
-  it('filters overdue items', positive, async (t) => {
+  it('filters overdue items', positive, async t => {
     const api = createApi(app, t);
-    await api.post(endpoint('/api/v0/todos')).send({ title: 'Late', dueDate: '2001-01-01' }).expect(201);
-    await api.post(endpoint('/api/v0/todos')).send({ title: 'Later', dueDate: '2099-01-01' }).expect(201);
+    await api
+      .post(endpoint('/api/v0/todos'))
+      .send({ title: 'Late', dueDate: '2001-01-01' })
+      .expect(201);
+    await api
+      .post(endpoint('/api/v0/todos'))
+      .send({ title: 'Later', dueDate: '2099-01-01' })
+      .expect(201);
 
     const overdue = await api.get(endpoint('/api/v0/todos?status=overdue')).expect(200);
     assert.equal(overdue.body.length, 1);
     assert.equal(overdue.body[0].title, 'Late');
   });
 
-  it('rejects missing required fields with 400', negative, async (t) => {
+  it('rejects missing required fields with 400', negative, async t => {
     const api = createApi(app, t);
 
     const emptyCreate = await api.post(endpoint('/api/v0/todos')).send({}).expect(400);
@@ -94,30 +103,66 @@ describe('todo API', () => {
     const created = await api.post(endpoint('/api/v0/todos')).send({ title: 'Valid' }).expect(201);
     const id = created.body.todoId as string;
 
-    await api.put(endpoint(`/api/v0/todos/${id}`)).send({}).expect(400);
-    await api.patch(endpoint(`/api/v0/todos/${id}`)).send({}).expect(400);
-    await api.patch(endpoint(`/api/v0/todos/${id}`)).send({ title: 'nope' }).expect(400);
+    await api
+      .put(endpoint(`/api/v0/todos/${id}`))
+      .send({})
+      .expect(400);
+    await api
+      .patch(endpoint(`/api/v0/todos/${id}`))
+      .send({})
+      .expect(400);
+    await api
+      .patch(endpoint(`/api/v0/todos/${id}`))
+      .send({ title: 'nope' })
+      .expect(400);
   });
 
-  it('rejects invalid formatting with 400', negative, async (t) => {
+  it('rejects invalid formatting with 400', negative, async t => {
     const api = createApi(app, t);
 
-    await api.post(endpoint('/api/v0/todos')).send({ title: 'x', dueDate: '10-09-2026' }).expect(400);
-    await api.post(endpoint('/api/v0/todos')).send({ title: 'x', dueDate: '2026-13-01' }).expect(400);
-    await api.post(endpoint('/api/v0/todos')).send({ title: 'x', dueDate: '2026-02-30' }).expect(400);
+    await api
+      .post(endpoint('/api/v0/todos'))
+      .send({ title: 'x', dueDate: '10-09-2026' })
+      .expect(400);
+    await api
+      .post(endpoint('/api/v0/todos'))
+      .send({ title: 'x', dueDate: '2026-13-01' })
+      .expect(400);
+    await api
+      .post(endpoint('/api/v0/todos'))
+      .send({ title: 'x', dueDate: '2026-02-30' })
+      .expect(400);
     await api.post(endpoint('/api/v0/todos')).send({ title: 'x', dueDate: 20261009 }).expect(400);
     await api.post(endpoint('/api/v0/todos')).send({ title: 'x', isCompleted: true }).expect(400);
 
     const created = await api.post(endpoint('/api/v0/todos')).send({ title: 'Valid' }).expect(201);
     const id = created.body.todoId as string;
 
-    await api.put(endpoint(`/api/v0/todos/${id}`)).send({ dueDate: '10-09-2026' }).expect(400);
-    await api.put(endpoint(`/api/v0/todos/${id}`)).send({ dueDate: '2026-02-30' }).expect(400);
+    await api
+      .put(endpoint(`/api/v0/todos/${id}`))
+      .send({ dueDate: '10-09-2026' })
+      .expect(400);
+    await api
+      .put(endpoint(`/api/v0/todos/${id}`))
+      .send({ dueDate: '2026-02-30' })
+      .expect(400);
 
-    await api.patch(endpoint(`/api/v0/todos/${id}`)).send({ isCompleted: 'yes' }).expect(400);
-    await api.patch(endpoint(`/api/v0/todos/${id}`)).send({ isCompleted: 1 }).expect(400);
-    await api.patch(endpoint(`/api/v0/todos/${id}`)).send({ isCompleted: '1' }).expect(400);
-    await api.patch(endpoint(`/api/v0/todos/${id}`)).send({ isCompleted: null }).expect(400);
+    await api
+      .patch(endpoint(`/api/v0/todos/${id}`))
+      .send({ isCompleted: 'yes' })
+      .expect(400);
+    await api
+      .patch(endpoint(`/api/v0/todos/${id}`))
+      .send({ isCompleted: 1 })
+      .expect(400);
+    await api
+      .patch(endpoint(`/api/v0/todos/${id}`))
+      .send({ isCompleted: '1' })
+      .expect(400);
+    await api
+      .patch(endpoint(`/api/v0/todos/${id}`))
+      .send({ isCompleted: null })
+      .expect(400);
 
     await api.get(endpoint('/api/v0/todos?status=open')).expect(400);
     await api.get(endpoint('/api/v0/todos?status=true')).expect(400);
@@ -126,7 +171,7 @@ describe('todo API', () => {
     assert.equal(badId.body.errorId, 'validation-error');
   });
 
-  it('returns 404 for unknown routes and ids', negative, async (t) => {
+  it('returns 404 for unknown routes and ids', negative, async t => {
     const api = createApi(app, t);
     await api.get(endpoint('/api/v0/nope')).expect(404);
     await api.get(endpoint('/api/v0/todos/11111111-1111-1111-1111-111111111111')).expect(404);

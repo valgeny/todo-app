@@ -4,7 +4,7 @@ REST API and a small React page for managing to-do items. The API follows the we
 
 ## Requirements
 
-- Node.js 20 or later
+- Node.js 24 or later
 - Yarn modern
 
 ## Build / run
