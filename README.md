@@ -99,7 +99,15 @@ yarn test:integration
 yarn test:e2e
 ```
 
-`yarn test:integration:report` opens the Allure HTML report for integration tests. Each HTTP call to the app under test is attached as a request/response step. `yarn test:e2e:report` opens the Playwright HTML report. Lint and format only:
+`yarn test:integration:report` opens the Allure HTML report for integration tests. Each HTTP call to the app under test is attached as a request/response step. `yarn test:e2e:report` opens the Playwright HTML report.
+
+### CI reports
+
+GitHub Actions uploads Allure and Playwright HTML reports as downloadable artifacts on every PR and `main` run (14-day retention).
+
+On pushes to `main`, the same reports are also published to GitHub Pages as a small static site (`/allure/`, `/playwright/`). Enable that once under **Settings → Pages → Source: GitHub Actions**.
+
+Lint and format only:
 
 ```bash
 yarn lint
