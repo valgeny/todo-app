@@ -1,20 +1,31 @@
-# To-Do List API
+# To-Do List
 
-REST API for managing to-do items. The layout follows the webconf Node/TypeScript service: Express routers, Joi-validated controllers, TypeORM models, and shared error middleware.
+REST API and a small React page for managing to-do items. The API follows the webconf Node/TypeScript service: Express routers, Joi-validated controllers, TypeORM models, and shared error middleware. The UI lives in `web/` and is a Vite + React + Material UI single page.
 
 ## Requirements
 
 - Node.js 20 or later
-- npm 10 or later
+- Yarn 1 (classic)
 
 ## Build / run
 
 ```bash
-npm install
-npm start
+yarn install
 ```
 
-The server listens on port `8080` (override with `PORT`). SQLite data is stored at `data/todos.sqlite` (override with `SQLITE_PATH`).
+Start the backend and the frontend in two terminals:
+
+```bash
+yarn dev:server
+```
+
+```bash
+yarn dev:web
+```
+
+The API listens on port `8080` (override with `PORT`). Open the UI at `http://localhost:5173`. The page calls `http://localhost:8080` directly. Helmet sets the security headers, and `cors` allows `localhost` and `127.0.0.1` on any port. SQLite data is stored at `data/todos.sqlite` (override with `SQLITE_PATH`).
+
+`yarn start` runs the API only. `yarn build` writes the UI to `web/dist`.
 
 ### Docker
 
@@ -27,20 +38,20 @@ The SQLite file is persisted on the `./data` volume.
 ## Tests
 
 ```bash
-npm test
+yarn test
 ```
 
-That runs Biome, then Mocha with coverage (`c8`). Lint/format only:
+That runs Biome from the repo root, then Mocha with coverage (`c8`) in `server/`. Lint/format only:
 
 ```bash
-npm run lint
-npm run format
+yarn lint
+yarn format
 ```
 
-Unit tests only:
+API tests only:
 
 ```bash
-npm run unit
+yarn workspace server test
 ```
 
 Tests use an in-memory SQLite database so they do not touch `data/todos.sqlite`.
@@ -78,7 +89,7 @@ curl -s -X POST http://localhost:8080/api/v0/todos \
 
 ## Postman
 
-1. Start the API (`npm start`).
+1. Start the API (`yarn dev:server`).
 2. In Postman: **Import** `postman/Todo-App.postman_collection.json` and `postman/Local.postman_environment.json`.
 3. Select the **Local** environment (`http://localhost:8080`).
 4. Run **Create Todo** first. It writes `todoId` onto the Local environment so Get / Update / Complete / Incomplete / Delete reuse it.
@@ -106,4 +117,4 @@ The collection includes status-code tests. Use **Run collection** to walk throug
 - SQLite instead of webconf’s SQL Server: same TypeORM architecture, much simpler local/test setup. Postgres can replace the driver later without changing controllers.
 - Express 5, TypeORM 1.x (`DataSource` instead of `createConnection`), Biome instead of TSLint/ESLint/Prettier.
 - Create returns 201 and delete returns 204 (REST), rather than webconf’s 200-for-everything pattern.
-- No HTML UI; evaluation focus is architecture, tests, and API quality.
+- The UI is one page (Vite, React, MUI). It does not add a second backend.

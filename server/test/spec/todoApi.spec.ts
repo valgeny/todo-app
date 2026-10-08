@@ -96,6 +96,27 @@ describe('todo API', () => {
     assert.equal(overdue.body[0].title, 'Late');
   });
 
+  it('allows CORS only for localhost origins', async () => {
+    const allowed = await request(app)
+      .get('/health')
+      .set('Origin', 'http://localhost:5173')
+      .expect(204);
+    assert.equal(allowed.headers['access-control-allow-origin'], 'http://localhost:5173');
+
+    const loopback = await request(app)
+      .options('/api/v0/todos')
+      .set('Origin', 'http://127.0.0.1:4173')
+      .set('Access-Control-Request-Method', 'POST')
+      .expect(204);
+    assert.equal(loopback.headers['access-control-allow-origin'], 'http://127.0.0.1:4173');
+
+    const blocked = await request(app)
+      .get('/health')
+      .set('Origin', 'https://example.com')
+      .expect(204);
+    assert.equal(blocked.headers['access-control-allow-origin'], undefined);
+  });
+
   it('returns 404 for unknown routes and ids', async () => {
     await request(app).get('/api/v0/nope').expect(404);
     await request(app).get('/api/v0/todos/11111111-1111-1111-1111-111111111111').expect(404);

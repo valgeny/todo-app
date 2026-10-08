@@ -1,9 +1,11 @@
-import { DEFAULT_PORT, DEFAULT_SQLITE_PATH } from './consts';
+import path from 'node:path';
+import { DEFAULT_PORT } from './consts';
 
 export const applicationName = 'todo-app';
 export const port: number = parseInt(process.env.PORT || '', 10) || DEFAULT_PORT;
 export const version = '1.0.0';
-export const sqlitePath: string = process.env.SQLITE_PATH || DEFAULT_SQLITE_PATH;
+export const sqlitePath: string =
+  process.env.SQLITE_PATH || path.join(__dirname, '../../data/todos.sqlite');
 
 const requiredParameters = {
   applicationName,
