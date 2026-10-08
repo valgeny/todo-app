@@ -10,7 +10,12 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   retries: 0,
-  reporter: [['list'], ['html', { open: 'never', outputFolder: 'playwright-report' }]],
+  reporter: [
+    ['list'],
+    ['html', { open: 'never', outputFolder: 'playwright-report' }],
+    // Annotations on the Actions run / PR file view when GITHUB_ACTIONS is set.
+    ['github']
+  ],
   outputDir: 'test-results',
   use: {
     baseURL: uiOrigin,

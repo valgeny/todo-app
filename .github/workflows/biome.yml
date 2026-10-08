@@ -1,0 +1,32 @@
+name: Biome
+
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: biome-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint with review comments
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+      checks: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Biome via reviewdog
+        uses: mongolyy/reviewdog-action-biome@v2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          reporter: github-pr-review
+          filter_mode: added
+          fail_level: error
+          biome_flags: '.'

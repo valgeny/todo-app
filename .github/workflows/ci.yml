@@ -16,10 +16,10 @@ permissions:
   id-token: write
 
 jobs:
-  build-and-test:
-    name: Build and test
+  build:
+    name: Build
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
 
     steps:
       - name: Checkout
@@ -42,11 +42,34 @@ jobs:
       - name: Lint
         run: yarn lint
 
-      - name: Integration tests
-        run: yarn test:integration
-
       - name: Build web
         run: yarn build
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Prepare env files
+        run: |
+          cp web/config/.env.example web/config/.env.local
+          test -f server/config/.env.test
+
+      - name: Integration tests
+        run: yarn test:integration
 
       - name: Install Playwright Chromium
         run: yarn playwright install --with-deps chromium
@@ -132,9 +155,9 @@ jobs:
 
   deploy-reports:
     name: Deploy reports to GitHub Pages
-    needs: build-and-test
+    needs: [build, test]
     # Publish even when tests failed, as long as the Pages artifact was uploaded.
-    if: ${{ always() && github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.build-and-test.result != 'cancelled' && needs.build-and-test.result != 'skipped' }}
+    if: ${{ always() && github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.test.result != 'cancelled' && needs.test.result != 'skipped' }}
     runs-on: ubuntu-latest
     environment:
       name: github-pages
