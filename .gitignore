@@ -27,6 +27,7 @@ credentials
 .env.*
 !.env.example
 !web/config/.env.playwright
+!server/config/.env.test
 *.postman_environment.json
 
 .DS_Store
