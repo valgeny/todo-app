@@ -1,0 +1,31 @@
+name: Publish Pages report
+description: >
+  Copy one HTML report into parameterized slots under the Pages site tree
+  (report-site/<report>/<slot>/). Reuse for Allure, Playwright, or any other report.
+
+inputs:
+  report:
+    description: Report id used in the URL path (e.g. allure, playwright)
+    required: true
+  source:
+    description: Local directory that contains index.html
+    required: true
+  slots:
+    description: Comma-separated slots to publish into (e.g. latest,1736380800)
+    required: true
+  site:
+    description: Site root directory
+    required: false
+    default: report-site
+
+runs:
+  using: composite
+  steps:
+    - name: Publish ${{ inputs.report }}
+      shell: bash
+      run: |
+        node "${{ github.workspace }}/.github/scripts/pages-site.mjs" publish \
+          --site "${{ inputs.site }}" \
+          --report "${{ inputs.report }}" \
+          --source "${{ inputs.source }}" \
+          --slots "${{ inputs.slots }}"

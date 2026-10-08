@@ -97,7 +97,7 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-      # Phase 2 prep: package a static site for GitHub Pages (main only)
+      # Phase 2: GitHub Pages site (main only) — /<report>/<slot>/
       - name: Restore previous report site
         if: ${{ always() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         uses: dawidd6/action-download-artifact@v6
@@ -110,146 +110,51 @@ jobs:
           if_no_artifact_found: warn
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Assemble report site
-        id: assemble
+      - name: Resolve publish slots
+        id: slots
         if: ${{ always() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         env:
           RUN_TIMESTAMP: ${{ github.run_started_at }}
-          RUN_ID: ${{ github.run_id }}
+        run: |
+          TS=$(node -e 'const t=process.env.RUN_TIMESTAMP; console.log(Math.floor(new Date(t||Date.now()).getTime()/1000))')
+          echo "ts=$TS" >> "$GITHUB_OUTPUT"
+          echo "slots=latest,$TS" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare report site
+        id: prepare
+        if: ${{ always() && steps.slots.outcome == 'success' }}
+        run: |
+          node .github/scripts/pages-site.mjs prepare \
+            --site report-site \
+            --prev report-site-prev
+
+      - name: Publish integration report
+        if: ${{ always() && steps.prepare.outcome == 'success' }}
+        uses: ./.github/actions/publish-pages-report
+        with:
+          report: allure
+          source: allure-report
+          slots: ${{ steps.slots.outputs.slots }}
+
+      - name: Publish end-to-end report
+        if: ${{ always() && steps.prepare.outcome == 'success' }}
+        uses: ./.github/actions/publish-pages-report
+        with:
+          report: playwright
+          source: playwright-report
+          slots: ${{ steps.slots.outputs.slots }}
+
+      - name: Finalize report site
+        id: assemble
+        if: ${{ always() && steps.prepare.outcome == 'success' }}
+        env:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          set -euo pipefail
-
-          # URL-safe UTC stamp from run start, e.g. 2026-10-08T23-09-30Z
-          TIMESTAMP=$(
-            node -e '
-              const raw = process.env.RUN_TIMESTAMP || new Date().toISOString();
-              const d = new Date(raw);
-              const iso = d.toISOString().replace(/\.\d{3}Z$/, "Z");
-              console.log(iso.replace(/:/g, "-"));
-            '
-          )
-          # Disambiguate same-second runs
-          STAMP="${TIMESTAMP}-run${RUN_ID}"
-
-          rm -rf report-site
-          mkdir -p report-site
-
-          if [ -d report-site-prev ]; then
-            # Keep prior timestamped runs; drop previous latest/index (rebuilt below).
-            cp -R report-site-prev/. report-site/
-            rm -rf report-site/latest report-site/allure report-site/playwright
-            rm -f report-site/index.html
-          fi
-
-          mkdir -p "report-site/latest" "report-site/${STAMP}"
-
-          copy_report() {
-            local src="$1" name="$2"
-            if [ -d "$src" ] && [ -f "$src/index.html" ]; then
-              cp -R "$src" "report-site/latest/${name}"
-              cp -R "$src" "report-site/${STAMP}/${name}"
-              return 0
-            fi
-            return 1
-          }
-
-          HAS_ANY=0
-          if copy_report allure-report allure; then HAS_ANY=1; fi
-          if copy_report playwright-report playwright; then HAS_ANY=1; fi
-
-          # Back-compat redirects for old /allure and /playwright URLs
-          if [ -d report-site/latest/allure ]; then
-            mkdir -p report-site/allure
-            printf '%s\n' '<!DOCTYPE html><meta http-equiv="refresh" content="0;url=../latest/allure/"><a href="../latest/allure/">Latest Allure report</a>' \
-              > report-site/allure/index.html
-          fi
-          if [ -d report-site/latest/playwright ]; then
-            mkdir -p report-site/playwright
-            printf '%s\n' '<!DOCTYPE html><meta http-equiv="refresh" content="0;url=../latest/playwright/"><a href="../latest/playwright/">Latest Playwright report</a>' \
-              > report-site/playwright/index.html
-          fi
-
-          # Keep the newest 30 timestamped runs (plus latest/)
-          node -e '
-            const { readdirSync, rmSync, statSync, writeFileSync } = require("node:fs");
-            const { join } = require("node:path");
-            const root = "report-site";
-            const keep = 30;
-            const stampRe = /^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}Z-run\d+$/;
-            const stamps = readdirSync(root)
-              .filter((name) => stampRe.test(name) && statSync(join(root, name)).isDirectory())
-              .sort()
-              .reverse();
-            for (const name of stamps.slice(keep)) {
-              rmSync(join(root, name), { recursive: true, force: true });
-            }
-            const remaining = readdirSync(root)
-              .filter((name) => stampRe.test(name) && statSync(join(root, name)).isDirectory())
-              .sort()
-              .reverse();
-
-            const hasLatestAllure = (() => {
-              try { return !!statSync(join(root, "latest/allure/index.html")); } catch { return false; }
-            })();
-            const hasLatestPw = (() => {
-              try { return !!statSync(join(root, "latest/playwright/index.html")); } catch { return false; }
-            })();
-
-            const latestLinks = [];
-            if (hasLatestAllure) latestLinks.push(`<li><a href="./latest/allure/">Integration (Allure)</a></li>`);
-            if (hasLatestPw) latestLinks.push(`<li><a href="./latest/playwright/">End-to-end (Playwright)</a></li>`);
-            if (!latestLinks.length) {
-              latestLinks.push("<li>No HTML reports were produced for this run.</li>");
-            }
-
-            const history = remaining.map((stamp) => {
-              const parts = [];
-              try { statSync(join(root, stamp, "allure/index.html")); parts.push(`<a href="./${stamp}/allure/">Allure</a>`); } catch {}
-              try { statSync(join(root, stamp, "playwright/index.html")); parts.push(`<a href="./${stamp}/playwright/">Playwright</a>`); } catch {}
-              const pretty = stamp.replace(
-                /^(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})-(\d{2})Z-run(\d+)$/,
-                "$1 $2:$3:$4Z — run $5"
-              );
-              return `<li><code>${pretty}</code>${parts.length ? " — " + parts.join(" · ") : ""}</li>`;
-            });
-
-            const runUrl = process.env.RUN_URL || "";
-            writeFileSync(
-              join(root, "index.html"),
-              `<!DOCTYPE html>
-          <html lang="en">
-          <head>
-            <meta charset="utf-8" />
-            <meta name="viewport" content="width=device-width, initial-scale=1" />
-            <title>Todo App test reports</title>
-            <style>
-              body { font: 16px/1.5 system-ui, sans-serif; margin: 2rem; color: #111; max-width: 48rem; }
-              a { color: #0969da; }
-              li { margin: 0.5rem 0; }
-              code { font-size: 0.95em; }
-              h2 { margin-top: 2rem; font-size: 1.15rem; }
-            </style>
-          </head>
-          <body>
-            <h1>Todo App test reports</h1>
-            <p>Published from <code>main</code> CI. <a href="./latest/">/latest/</a> is overwritten each run; timestamp folders are kept (last 30).</p>
-            ${runUrl ? `<p>This publish: <a href="${runUrl}">workflow run</a>.</p>` : ""}
-            <h2>Latest</h2>
-            <ul>
-              ${latestLinks.join("\n              ")}
-            </ul>
-            <h2>History</h2>
-            <ul>
-              ${history.length ? history.join("\n              ") : "<li>No previous runs yet.</li>"}
-            </ul>
-          </body>
-          </html>
-          `
-            );
-          '
-
-          echo "Assembled report site at latest/ and ${STAMP}/ (has_reports=${HAS_ANY})"
+          node .github/scripts/pages-site.mjs finalize \
+            --site report-site \
+            --keep 30 \
+            --run-url "$RUN_URL" \
+            --history-slot "${{ steps.slots.outputs.ts }}"
 
       - name: Upload GitHub Pages artifact
         if: ${{ always() && steps.assemble.outcome == 'success' }}
@@ -257,7 +162,6 @@ jobs:
         with:
           path: report-site
 
-      # Retained so the next main run can merge timestamp history
       - name: Upload pages site history artifact
         if: ${{ always() && steps.assemble.outcome == 'success' }}
         uses: actions/upload-artifact@v4
@@ -269,7 +173,6 @@ jobs:
   deploy-reports:
     name: Deploy reports to GitHub Pages
     needs: [build, test]
-    # Publish even when tests failed, as long as the Pages artifact was uploaded.
     if: ${{ always() && github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.test.result != 'cancelled' && needs.test.result != 'skipped' }}
     runs-on: ubuntu-latest
     environment:
