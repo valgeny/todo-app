@@ -114,7 +114,7 @@ describe('todo API', () => {
     assert.equal(overdue.body[0].title, 'Late');
   });
 
-  it('allows CORS only for localhost origins', async () => {
+  it('allows CORS only for localhost and Codespaces origins', async () => {
     const allowed = await request(app).get(endpoint('/health')).set('Origin', baseUrl).expect(204);
     assert.equal(allowed.headers['access-control-allow-origin'], baseUrl);
 
@@ -124,6 +124,13 @@ describe('todo API', () => {
       .set('Access-Control-Request-Method', 'POST')
       .expect(204);
     assert.equal(loopback.headers['access-control-allow-origin'], loopbackUrl);
+
+    const codespaceOrigin = 'https://todo-app-3000.app.github.dev';
+    const codespace = await request(app)
+      .get(endpoint('/health'))
+      .set('Origin', codespaceOrigin)
+      .expect(204);
+    assert.equal(codespace.headers['access-control-allow-origin'], codespaceOrigin);
 
     const blocked = await request(app)
       .get(endpoint('/health'))

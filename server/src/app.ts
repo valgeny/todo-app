@@ -40,7 +40,7 @@ export async function createApp(dataSource?: DataSource): Promise<Application> {
 
 export async function startApp(): Promise<Server> {
   const app = await createApp();
-  const server = app.listen(config.port);
+  const server = app.listen(config.port, config.host);
   console.info(`Service started. Waiting for requests on port ${config.port}.`);
   return server;
 }

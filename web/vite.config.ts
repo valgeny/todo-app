@@ -49,10 +49,17 @@ export default defineConfig(({ mode }) => {
     throw new Error(`VITE_ORIGIN in ${envFile} must include a port`);
   }
 
+  const codespaceName = process.env.CODESPACE_NAME;
+  const forwardingDomain = process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN ?? 'app.github.dev';
+  const apiPort = new URL(apiOrigin).port;
+  const resolvedApiOrigin = codespaceName
+    ? `https://${codespaceName}-${apiPort}.${forwardingDomain}`
+    : apiOrigin;
+
   return {
     plugins: [react()],
     define: {
-      'import.meta.env.VITE_API_ORIGIN': JSON.stringify(apiOrigin)
+      'import.meta.env.VITE_API_ORIGIN': JSON.stringify(resolvedApiOrigin)
     },
     resolve: {
       alias: {
@@ -60,7 +67,14 @@ export default defineConfig(({ mode }) => {
       }
     },
     server: {
-      port
+      port,
+      ...(codespaceName
+        ? {
+            host: true,
+            allowedHosts: true,
+            hmr: { protocol: 'wss' as const, clientPort: 443 }
+          }
+        : {})
     },
     preview: {
       port
