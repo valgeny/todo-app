@@ -2,14 +2,16 @@
 /**
  * Maintain the GitHub Pages report site tree:
  *
- *   report-site/<report>/<slot>/
+ *   report-site/<report>/<slot>/                  (main)
+ *   report-site/<branch>/<report>/<slot>/         (temp / feature branches)
  *
- * Slots are typically `latest` (overwritten) or a URL-safe unix timestamp.
+ * Slots are `latest` (overwritten) or a URL-safe unix timestamp.
  *
  * Commands:
  *   prepare  --site DIR [--prev DIR]
- *   publish  --site DIR --report NAME --source DIR --slots SLOT[,SLOT...]
- *   finalize --site DIR [--keep N] [--run-url URL] [--history-slot SLOT]
+ *   publish  --site DIR --report NAME --source DIR --slots SLOT[,SLOT...] [--base BRANCH]
+ *   finalize --site DIR [--keep N] [--run-url URL] [--history-slot SLOT] [--base BRANCH]
+ *   sanitize-branch NAME
  */
 
 import {
@@ -23,13 +25,14 @@ import {
 } from "node:fs";
 import { join, resolve } from "node:path";
 
-const RESERVED = new Set(["index.html"]);
+const RESERVED_TOP = new Set(["index.html", "allure", "playwright", "latest"]);
 
 function usage(exitCode = 1) {
   console.error(`Usage:
   pages-site.mjs prepare  --site DIR [--prev DIR]
-  pages-site.mjs publish  --site DIR --report NAME --source DIR --slots SLOT[,SLOT...]
-  pages-site.mjs finalize --site DIR [--keep 30] [--run-url URL] [--history-slot SLOT]
+  pages-site.mjs publish  --site DIR --report NAME --source DIR --slots SLOT[,SLOT...] [--base BRANCH]
+  pages-site.mjs finalize --site DIR [--keep 30] [--run-url URL] [--history-slot SLOT] [--base BRANCH]
+  pages-site.mjs sanitize-branch NAME
 `);
   process.exit(exitCode);
 }
@@ -66,12 +69,39 @@ function hasIndex(path) {
   return existsSync(join(path, "index.html"));
 }
 
-function listReportNames(site) {
-  if (!isDir(site)) return [];
-  return readdirSync(site)
-    .filter((name) => !RESERVED.has(name))
-    .filter((name) => isDir(join(site, name)))
+/** URL-safe branch folder name. */
+function sanitizeBranch(name) {
+  let base = String(name || "")
+    .trim()
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^[-.]+|[-.]+$/g, "")
+    .slice(0, 100);
+  if (!base) base = "branch";
+  if (RESERVED_TOP.has(base) || /^\d+$/.test(base)) {
+    base = `b-${base}`;
+  }
+  return base;
+}
+
+function rootOf(site, base) {
+  const siteDir = resolve(site);
+  if (!base) return siteDir;
+  const safe = sanitizeBranch(base);
+  return join(siteDir, safe);
+}
+
+function listReportNames(treeRoot) {
+  if (!isDir(treeRoot)) return [];
+  return readdirSync(treeRoot)
+    .filter((name) => name !== "index.html")
+    .filter((name) => looksLikeReport(join(treeRoot, name)))
     .sort();
+}
+
+function looksLikeReport(dir) {
+  if (!isDir(dir)) return false;
+  return hasIndex(join(dir, "latest")) || listHistorySlots(dir).length > 0;
 }
 
 /** History slots are decimal unix timestamps (URL-safe, sortable). */
@@ -82,6 +112,19 @@ function listHistorySlots(reportDir) {
     .sort((a, b) => Number(b) - Number(a));
 }
 
+function listBranchPreviews(siteDir) {
+  if (!isDir(siteDir)) return [];
+  return readdirSync(siteDir)
+    .filter((name) => !RESERVED_TOP.has(name))
+    .filter((name) => !/^\d+$/.test(name))
+    .filter((name) => {
+      const dir = join(siteDir, name);
+      if (!isDir(dir) || looksLikeReport(dir)) return false;
+      return hasIndex(dir) || listReportNames(dir).length > 0;
+    })
+    .sort();
+}
+
 function prepare({ site, prev }) {
   const siteDir = resolve(site);
   rmSync(siteDir, { recursive: true, force: true });
@@ -89,20 +132,18 @@ function prepare({ site, prev }) {
 
   if (prev && isDir(prev)) {
     cpSync(resolve(prev), siteDir, { recursive: true });
-    // Drop generated index; publish/finalize rebuild the tree for this run.
-    rmSync(join(siteDir, "index.html"), { force: true });
   }
 
   console.log(`Prepared ${siteDir}`);
 }
 
-function publish({ site, report, source, slots }) {
+function publish({ site, report, source, slots, base = "" }) {
   if (!site || !report || !source || !slots) usage();
   if (!/^[a-z0-9][a-z0-9_-]*$/i.test(report)) {
     throw new Error(`Invalid report name: ${report}`);
   }
 
-  const siteDir = resolve(site);
+  const treeRoot = rootOf(site, base);
   const sourceDir = resolve(source);
   const slotList = String(slots)
     .split(",")
@@ -125,13 +166,14 @@ function publish({ site, report, source, slots }) {
     return;
   }
 
-  mkdirSync(siteDir, { recursive: true });
+  const prefix = base ? `${sanitizeBranch(base)}/` : "";
+  mkdirSync(treeRoot, { recursive: true });
   for (const slot of slotList) {
-    const dest = join(siteDir, report, slot);
+    const dest = join(treeRoot, report, slot);
     rmSync(dest, { recursive: true, force: true });
-    mkdirSync(join(siteDir, report), { recursive: true });
+    mkdirSync(join(treeRoot, report), { recursive: true });
     cpSync(sourceDir, dest, { recursive: true });
-    console.log(`Published ${report} → ${report}/${slot}/`);
+    console.log(`Published ${report} → ${prefix}${report}/${slot}/`);
   }
 }
 
@@ -148,31 +190,30 @@ function formatSlot(slot) {
   return `${new Date(ms).toISOString().replace(/\.\d{3}Z$/, "Z")} (${slot})`;
 }
 
-function finalize({ site, keep = "30", "run-url": runUrl = "", "history-slot": historySlot = "" }) {
-  const siteDir = resolve(site);
-  const keepN = Number(keep);
-  if (!Number.isFinite(keepN) || keepN < 1) {
-    throw new Error(`Invalid --keep value: ${keep}`);
-  }
+const LABELS = {
+  allure: "Integration (Allure)",
+  playwright: "End-to-end (Playwright)",
+};
 
-  mkdirSync(siteDir, { recursive: true });
-
-  const reports = listReportNames(siteDir);
+function writeTreeIndex(treeRoot, {
+  keepN,
+  runUrl,
+  historySlot,
+  title,
+  pathPrefix,
+  branchPreviews = [],
+}) {
+  const reports = listReportNames(treeRoot);
   for (const report of reports) {
-    pruneHistory(join(siteDir, report), keepN);
+    pruneHistory(join(treeRoot, report), keepN);
   }
-
-  const labels = {
-    allure: "Integration (Allure)",
-    playwright: "End-to-end (Playwright)",
-  };
 
   const latestItems = [];
   for (const report of reports) {
-    if (hasIndex(join(siteDir, report, "latest"))) {
-      const label = labels[report] || report;
+    if (hasIndex(join(treeRoot, report, "latest"))) {
+      const label = LABELS[report] || report;
       latestItems.push(
-        `<li><a href="./${report}/latest/">${label}</a> — <code>/${report}/latest/</code></li>`,
+        `<li><a href="./${report}/latest/">${label}</a> — <code>${pathPrefix}${report}/latest/</code></li>`,
       );
     }
   }
@@ -180,10 +221,9 @@ function finalize({ site, keep = "30", "run-url": runUrl = "", "history-slot": h
     latestItems.push("<li>No HTML reports were produced for this run.</li>");
   }
 
-  // Union of history slots across reports, newest first
   const slotSet = new Set();
   for (const report of reports) {
-    for (const slot of listHistorySlots(join(siteDir, report))) {
+    for (const slot of listHistorySlots(join(treeRoot, report))) {
       slotSet.add(slot);
     }
   }
@@ -192,8 +232,8 @@ function finalize({ site, keep = "30", "run-url": runUrl = "", "history-slot": h
   const historyItems = historySlots.map((slot) => {
     const links = [];
     for (const report of reports) {
-      if (hasIndex(join(siteDir, report, slot))) {
-        const label = labels[report] || report;
+      if (hasIndex(join(treeRoot, report, slot))) {
+        const label = LABELS[report] || report;
         links.push(`<a href="./${report}/${slot}/">${label}</a>`);
       }
     }
@@ -203,14 +243,28 @@ function finalize({ site, keep = "30", "run-url": runUrl = "", "history-slot": h
     }</li>`;
   });
 
+  const branchSection = branchPreviews.length
+    ? `
+  <h2>Branch previews</h2>
+  <ul>
+    ${branchPreviews
+      .map(
+        (name) =>
+          `<li><a href="./${name}/"><code>${name}</code></a></li>`,
+      )
+      .join("\n    ")}
+  </ul>`
+    : "";
+
+  mkdirSync(treeRoot, { recursive: true });
   writeFileSync(
-    join(siteDir, "index.html"),
+    join(treeRoot, "index.html"),
     `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Todo App test reports</title>
+  <title>${title}</title>
   <style>
     body { font: 16px/1.5 system-ui, sans-serif; margin: 2rem; color: #111; max-width: 48rem; }
     a { color: #0969da; }
@@ -220,9 +274,10 @@ function finalize({ site, keep = "30", "run-url": runUrl = "", "history-slot": h
   </style>
 </head>
 <body>
-  <h1>Todo App test reports</h1>
-  <p>Paths are <code>/&lt;report&gt;/&lt;slot&gt;/</code> where <code>slot</code> is <code>latest</code> or a unix timestamp. History keeps the last ${keepN} timestamps per report.</p>
+  <h1>${title}</h1>
+  <p>Paths are <code>${pathPrefix}&lt;report&gt;/&lt;slot&gt;/</code> where <code>slot</code> is <code>latest</code> or a unix timestamp. History keeps the last ${keepN} timestamps per report.</p>
   ${runUrl ? `<p>This publish: <a href="${runUrl}">workflow run</a>.</p>` : ""}
+  ${pathPrefix !== "/" ? `<p><a href="../">← All reports</a></p>` : ""}
   <h2>Latest</h2>
   <ul>
     ${latestItems.join("\n    ")}
@@ -230,17 +285,63 @@ function finalize({ site, keep = "30", "run-url": runUrl = "", "history-slot": h
   <h2>History</h2>
   <ul>
     ${historyItems.length ? historyItems.join("\n    ") : "<li>No previous runs yet.</li>"}
-  </ul>
+  </ul>${branchSection}
 </body>
 </html>
 `,
   );
 
-  console.log(`Finalized index for ${reports.length} report(s)`);
+  return reports.length;
+}
+
+function finalize({
+  site,
+  keep = "30",
+  "run-url": runUrl = "",
+  "history-slot": historySlot = "",
+  base = "",
+}) {
+  const siteDir = resolve(site);
+  const keepN = Number(keep);
+  if (!Number.isFinite(keepN) || keepN < 1) {
+    throw new Error(`Invalid --keep value: ${keep}`);
+  }
+
+  const treeRoot = rootOf(site, base);
+  const safeBase = base ? sanitizeBranch(base) : "";
+  const pathPrefix = safeBase ? `/${safeBase}/` : "/";
+  const title = safeBase
+    ? `Todo App test reports — ${safeBase}`
+    : "Todo App test reports";
+
+  // Drop stale index under this tree before rewrite
+  rmSync(join(treeRoot, "index.html"), { force: true });
+
+  const count = writeTreeIndex(treeRoot, {
+    keepN,
+    runUrl: safeBase ? runUrl : runUrl,
+    historySlot,
+    title,
+    pathPrefix,
+    branchPreviews: [],
+  });
+  console.log(`Finalized ${pathPrefix} (${count} report(s))`);
+
+  // Always refresh the site root index so branch previews are linked.
+  const previews = listBranchPreviews(siteDir);
+  writeTreeIndex(siteDir, {
+    keepN,
+    runUrl: safeBase ? "" : runUrl,
+    historySlot: safeBase ? "" : historySlot,
+    title: "Todo App test reports",
+    pathPrefix: "/",
+    branchPreviews: previews,
+  });
+  console.log(`Refreshed site root (${previews.length} branch preview(s))`);
 }
 
 const args = parseArgs(process.argv.slice(2));
-const [command] = args._;
+const [command, maybeName] = args._;
 
 try {
   switch (command) {
@@ -255,6 +356,12 @@ try {
       if (!args.site) usage();
       finalize(args);
       break;
+    case "sanitize-branch": {
+      const name = maybeName || args.name;
+      if (!name) usage();
+      process.stdout.write(`${sanitizeBranch(name)}\n`);
+      break;
+    }
     case "help":
     case undefined:
       usage(command === "help" ? 0 : 1);
