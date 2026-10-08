@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
+import { afterEach, beforeEach, describe, it } from 'node:test';
 import { baseUrl, endpoint, loopbackUrl, startTestApp, stopTestApp } from '@test/helpers/testApp';
 import type { Application } from 'express';
-import { afterEach, beforeEach, describe, it } from 'mocha';
 import request from 'supertest';
 
 describe('todo API', () => {

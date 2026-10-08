@@ -26,6 +26,7 @@ credentials
 .env
 .env.*
 !.env.example
+!web/config/.env.playwright
 *.postman_environment.json
 
 .DS_Store
@@ -33,3 +34,6 @@ dist/
 
 data/*.sqlite
 data/*.sqlite-*
+
+playwright-report/
+test-results/

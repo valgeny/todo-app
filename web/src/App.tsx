@@ -102,6 +102,7 @@ export function App() {
             To-dos
           </Typography>
           <Button
+            data-test="add-todo"
             variant="contained"
             onClick={() => setEditor({ kind: 'create', draft: emptyDraft })}
           >
@@ -123,7 +124,11 @@ export function App() {
             aria-label="Filter to-dos"
           >
             {filters.map(filter => (
-              <ToggleButton key={filter.value} value={filter.value}>
+              <ToggleButton
+                data-test={`filter-${filter.value}`}
+                key={filter.value}
+                value={filter.value}
+              >
                 {filter.label}
               </ToggleButton>
             ))}
@@ -132,13 +137,18 @@ export function App() {
           <FormControl size="small" sx={{ minWidth: 160 }}>
             <InputLabel id="sort-label">Sort</InputLabel>
             <Select
+              data-test="sort"
               labelId="sort-label"
               label="Sort"
               value={sort}
               onChange={event => setSort(event.target.value as TodoSort)}
             >
               {sorts.map(option => (
-                <MenuItem key={option.value} value={option.value}>
+                <MenuItem
+                  data-test={`sort-${option.value}`}
+                  key={option.value}
+                  value={option.value}
+                >
                   {option.label}
                 </MenuItem>
               ))}

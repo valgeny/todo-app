@@ -24,7 +24,7 @@ export function TodoDialog({
   onSubmit: () => void;
 }) {
   return (
-    <Dialog open={open} onClose={onClose} fullWidth>
+    <Dialog data-test="todo-dialog" open={open} onClose={onClose} fullWidth>
       <DialogTitle>{title}</DialogTitle>
       <Box
         component="form"
@@ -42,8 +42,15 @@ export function TodoDialog({
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={onClose}>Cancel</Button>
-          <Button type="submit" variant="contained" disabled={busy || !draft.title.trim()}>
+          <Button data-test="todo-cancel" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            data-test="todo-submit"
+            type="submit"
+            variant="contained"
+            disabled={busy || !draft.title.trim()}
+          >
             {submitLabel}
           </Button>
         </DialogActions>
