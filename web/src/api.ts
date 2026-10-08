@@ -9,6 +9,15 @@ export type Todo = {
 
 export type TodoStatus = 'all' | 'completed' | 'incomplete' | 'overdue';
 
+export type TodoSort = 'newest' | 'oldest' | 'due-soonest' | 'due-latest';
+
+const sortParams: Record<TodoSort, { sortField: string; sortOrder: string }> = {
+  newest: { sortField: 'createdAt', sortOrder: 'DESC' },
+  oldest: { sortField: 'createdAt', sortOrder: 'ASC' },
+  'due-soonest': { sortField: 'dueDate', sortOrder: 'ASC' },
+  'due-latest': { sortField: 'dueDate', sortOrder: 'DESC' }
+};
+
 export type TodoDraft = {
   title: string;
   description: string;
@@ -46,12 +55,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
-export function listTodos(status: TodoStatus): Promise<Todo[]> {
+export function listTodos(status: TodoStatus, sort: TodoSort = 'newest'): Promise<Todo[]> {
   const params = new URLSearchParams({
     status,
     limit: '100',
-    sortField: 'createdAt',
-    sortOrder: 'DESC'
+    ...sortParams[sort]
   });
   return request<Todo[]>(`/api/v0/todos?${params}`);
 }
