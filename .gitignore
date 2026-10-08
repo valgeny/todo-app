@@ -36,4 +36,7 @@ data/*.sqlite
 data/*.sqlite-*
 
 playwright-report/
+allure-report/
+allure-results/
+**/allure-results/
 test-results/

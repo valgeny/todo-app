@@ -21,9 +21,11 @@ import {
 import { pagination, sort } from '@/utils/restUtils';
 import type { ValidatedRequest } from '@/utils/validate';
 
-const todoIdParams = Joi.object().keys({
-  todoId: todoIdSchema.required()
-});
+const todoIdParams = Joi.object()
+  .keys({
+    todoId: todoIdSchema.required()
+  })
+  .required();
 
 export const getTodoBulk = {
   validation: {

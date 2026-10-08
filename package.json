@@ -17,6 +17,7 @@
     "format": "biome check --write .",
     "test": "yarn lint && yarn test:integration",
     "test:integration": "yarn workspace server test",
+    "test:integration:report": "allure open allure-report",
     "test:e2e": "playwright test",
     "test:e2e:report": "playwright show-report"
   },

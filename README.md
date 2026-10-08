@@ -99,7 +99,7 @@ yarn test:integration
 yarn test:e2e
 ```
 
-`yarn test:e2e:report` opens the Playwright HTML report. Lint and format only:
+`yarn test:integration:report` opens the Allure HTML report for integration tests. Each HTTP call to the app under test is attached as a request/response step. `yarn test:e2e:report` opens the Playwright HTML report. Lint and format only:
 
 ```bash
 yarn lint
