@@ -68,9 +68,11 @@ In another terminal:
 yarn dev:web:docker
 ```
 
+This builds the API image and a SQL Server 2019 image, creates the `TodoApp` database, and starts both. The UI stays on the host. `yarn dev:web:docker` reads `web/config/.env.docker` and listens on port `3001`. Host ports are `1433` and `8080` for the database and API.
+
 ### Codespaces
 
-On GitHub, open the repository with **Code** → **Codespaces** → **Create codespace on main**. The dev container installs dependencies and copies the env examples when those files are missing. It forwards the UI on port `3000` and the API on port `8000`.
+On GitHub, open the repository with **Code** → **Codespaces** → **Create codespace on main**. The dev container installs dependencies, copies the env examples when those files are missing, and sets `HOST=0.0.0.0` so the API accepts forwarded connections. It forwards the UI on port `3000` and the API on port `8000`.
 
 In the Codespace terminals:
 
@@ -82,9 +84,7 @@ yarn dev:server
 yarn dev:web
 ```
 
-Open the forwarded UI port. The page calls `https://<codespace>-8000.app.github.dev`, and the API allows that Codespace origin. Use the SQLite example. The machine stops when it is idle, so this is a running dev session, not a deployment.
-
-This builds the API image and a SQL Server 2019 image, creates the `TodoApp` database, and starts both. The UI stays on the host. `yarn dev:web:docker` reads `web/config/.env.docker` and listens on port `3001`. Host ports are `1433` and `8080` for the database and API.
+Open the forwarded UI port. The page calls `https://<codespace>-8000.app.github.dev`. `CORS_ORIGINS` allows `localhost`, `127.0.0.1`, and `*.app.github.dev`. Use the SQLite example. The machine stops when it is idle, so this is a running dev session, not a deployment.
 
 ## Tests
 

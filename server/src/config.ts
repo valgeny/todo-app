@@ -19,9 +19,23 @@ const portSchema = z
   .transform(value => (value ? Number(value) : DEFAULT_PORT))
   .pipe(z.number().int().min(1).max(65535));
 
+const defaultOrigins = ['localhost', '127.0.0.1', '*.app.github.dev'];
+
 const baseConfigSchema = z.object({
   PORT: portSchema,
+  HOST: z.string().min(1).default('::'),
   LOG_FORMAT: z.enum(['combined', 'common', 'dev', 'short', 'tiny']).default('dev'),
+  CORS_ORIGINS: z
+    .string()
+    .optional()
+    .transform(value =>
+      value
+        ? value
+            .split(',')
+            .map(origin => origin.trim())
+            .filter(Boolean)
+        : defaultOrigins
+    ),
   DB_NAME: z.string().min(1)
 });
 
@@ -64,6 +78,8 @@ export const config = {
   applicationName: 'todo-app',
   version: '1.0.0',
   port: env.PORT,
+  host: env.HOST,
   logFormat: env.LOG_FORMAT,
+  allowedOrigins: env.CORS_ORIGINS,
   database
 };
