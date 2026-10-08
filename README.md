@@ -109,6 +109,11 @@ On pushes to `main`, the same reports are also published to GitHub Pages as a sm
 
 Pull requests also run the **Biome** workflow (`mongolyy/reviewdog-action-biome`), which posts inline review comments for lint findings on changed lines.
 
+Test reporters:
+
+- Integration: console `spec`, Allure HTML, and `@reporters/github` (Actions annotations + job summary)
+- E2E: Playwright `list`, HTML report, and built-in `github` reporter (Actions annotations)
+
 Lint and format only:
 
 ```bash
