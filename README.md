@@ -105,7 +105,12 @@ yarn test:e2e
 
 GitHub Actions uploads Allure and Playwright HTML reports as downloadable artifacts on every PR and `main` run (14-day retention).
 
-On pushes to `main`, the same reports are also published to GitHub Pages as a small static site (`/allure/`, `/playwright/`). Enable that once under **Settings → Pages → Source: GitHub Actions**.
+On pushes to `main`, the same reports are also published to GitHub Pages. Each run overwrites `/latest/` and also keeps a timestamped copy (last 30 runs). Enable that once under **Settings → Pages → Source: GitHub Actions**.
+
+- Index: `https://valgeny.github.io/todo-app/`
+- Latest: `/latest/allure/`, `/latest/playwright/`
+- History: `/<timestamp>-run<id>/allure/`, `/<timestamp>-run<id>/playwright/`
+- Legacy `/allure/` and `/playwright/` redirect to `/latest/…`
 
 Pull requests also run the **Biome** workflow (`mongolyy/reviewdog-action-biome`), which posts inline review comments for lint findings on changed lines.
 
