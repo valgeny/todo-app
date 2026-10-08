@@ -1,6 +1,6 @@
 import { type FindOptionsWhere, LessThan } from 'typeorm';
-import { NotFoundError } from '../errors';
-import { Todo } from '../models/todo';
+import { NotFoundError } from '@/errors';
+import { Todo } from '@/models/todo';
 
 export type ListStatus = 'all' | 'completed' | 'incomplete' | 'overdue';
 export type SortField = 'dueDate' | 'createdAt' | 'title';

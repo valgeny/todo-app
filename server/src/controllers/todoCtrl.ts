@@ -7,7 +7,7 @@ import {
   titleSchema,
   todoIdSchema,
   toTodoResponse
-} from '../models/todo';
+} from '@/models/todo';
 import {
   createTodo,
   getTodoById,
@@ -17,9 +17,9 @@ import {
   type SortField,
   setTodoCompleted,
   updateTodo
-} from '../services/todoService';
-import { pagination, sort } from '../utils/restUtils';
-import type { ValidatedRequest } from '../utils/validate';
+} from '@/services/todoService';
+import { pagination, sort } from '@/utils/restUtils';
+import type { ValidatedRequest } from '@/utils/validate';
 
 const todoIdParams = Joi.object().keys({
   todoId: todoIdSchema.required()

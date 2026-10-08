@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { after, beforeEach, describe, it } from 'mocha';
-import { NotFoundError } from '../../src/errors';
-import { closeDb, createDataSource, initDb } from '../../src/providers/db';
+import { NotFoundError } from '@/errors';
+import { closeDb, createDataSource, initDb } from '@/providers/db';
 import {
   createTodo,
   deleteTodo,
@@ -9,7 +9,7 @@ import {
   listTodos,
   setTodoCompleted,
   updateTodo
-} from '../../src/services/todoService';
+} from '@/services/todoService';
 
 describe('todoService', () => {
   after(async () => {

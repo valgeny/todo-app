@@ -1,7 +1,7 @@
 import type { Application } from 'express';
 import type { DataSource } from 'typeorm';
-import { createApp } from '../../src/app';
-import { closeDb, createDataSource } from '../../src/providers/db';
+import { createApp } from '@/app';
+import { closeDb, createDataSource } from '@/providers/db';
 
 export const startTestApp = async (): Promise<{ app: Application; dataSource: DataSource }> => {
   const dataSource = createDataSource({

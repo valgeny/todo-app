@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
+import { startTestApp, stopTestApp } from '@test/helpers/testApp';
 import type { Application } from 'express';
 import { afterEach, beforeEach, describe, it } from 'mocha';
 import request from 'supertest';
-import { startTestApp, stopTestApp } from '../helpers/testApp';
 
 describe('todo API', () => {
   let app: Application;

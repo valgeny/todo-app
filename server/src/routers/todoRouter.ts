@@ -6,8 +6,8 @@ import {
   patchTodo,
   postTodo,
   putTodo
-} from '../controllers/todoCtrl';
-import { validate } from '../utils/validate';
+} from '@/controllers/todoCtrl';
+import { validate } from '@/utils/validate';
 
 const router: Router = Router();
 

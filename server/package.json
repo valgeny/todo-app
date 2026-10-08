@@ -5,7 +5,7 @@
   "description": "To-do list REST API",
   "main": "dist/main.js",
   "scripts": {
-    "start": "ts-node --transpile-only src/main.ts",
+    "start": "ts-node -r tsconfig-paths/register --transpile-only src/main.ts",
     "debug": "nodemon -e ts --watch src --exec \"yarn start\"",
     "test": "NODE_ENV=test c8 mocha"
   },
@@ -37,6 +37,7 @@
     "nodemon": "^3.1.14",
     "supertest": "^7.3.1",
     "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
     "typescript": "^6.0.3"
   }
 }

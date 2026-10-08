@@ -1,8 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { DataSource, type DataSourceOptions } from 'typeorm';
-import { sqlitePath } from '../config';
-import { Todo } from '../models/todo';
+import { sqlitePath } from '@/config';
+import { Todo } from '@/models/todo';
 
 export type SqliteOverrides = {
   database?: string;
