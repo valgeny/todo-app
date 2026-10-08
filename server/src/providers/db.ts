@@ -1,29 +1,52 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { DataSource, type DataSourceOptions } from 'typeorm';
-import { sqlitePath } from '@/config';
+import { config } from '@/config';
 import { Todo } from '@/models/todo';
 
-export type SqliteOverrides = {
-  database?: string;
+export type DataSourceOverrides = {
   logging?: boolean;
 };
 
-export const createDataSource = (overrides: SqliteOverrides = {}): DataSource => {
-  const database = overrides.database ?? sqlitePath;
+const databaseLabel = (database: typeof config.database): string =>
+  database.dialect === 'sqlite'
+    ? `sqlite ${database.name}`
+    : `mssql ${database.host}/${database.name}`;
 
-  if (database && database !== ':memory:') {
-    fs.mkdirSync(path.dirname(database), { recursive: true });
+export const createDataSource = (overrides: DataSourceOverrides = {}): DataSource => {
+  const logging = overrides.logging ?? false;
+  const { database } = config;
+
+  if (database.dialect === 'sqlite') {
+    if (database.name !== ':memory:') {
+      fs.mkdirSync(path.dirname(database.name), { recursive: true });
+    }
+
+    const options: DataSourceOptions = {
+      type: 'better-sqlite3',
+      database: database.name,
+      entities: [Todo],
+      synchronize: true,
+      logging
+    };
+    return new DataSource(options);
   }
 
   const options: DataSourceOptions = {
-    type: 'better-sqlite3',
-    database,
+    type: 'mssql',
+    host: database.host,
+    port: database.port,
+    username: database.user,
+    password: database.password,
+    database: database.name,
     entities: [Todo],
     synchronize: true,
-    logging: overrides.logging ?? false
+    logging,
+    options: {
+      encrypt: false,
+      trustServerCertificate: true
+    }
   };
-
   return new DataSource(options);
 };
 
@@ -36,6 +59,9 @@ export const initDb = async (dataSource?: DataSource): Promise<DataSource> => {
   }
   Todo.useDataSource(ds);
   defaultDataSource = ds;
+  if (process.env.NODE_ENV !== 'test') {
+    console.info(`Database ${databaseLabel(config.database)}.`);
+  }
   return ds;
 };
 

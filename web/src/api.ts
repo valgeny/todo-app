@@ -36,7 +36,11 @@ async function errorMessage(response: Response): Promise<string> {
   return response.statusText || 'Request failed';
 }
 
-const API_ORIGIN = 'http://localhost:8080';
+const API_ORIGIN = import.meta.env.VITE_API_ORIGIN;
+
+if (!API_ORIGIN) {
+  throw new Error('VITE_API_ORIGIN is missing from the active config file');
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_ORIGIN}${path}`, {

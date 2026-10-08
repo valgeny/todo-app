@@ -11,6 +11,7 @@
     "start": "yarn workspace server start",
     "dev:server": "yarn workspace server debug",
     "dev:web": "yarn workspace web dev",
+    "dev:web:docker": "yarn workspace web dev:docker",
     "build": "yarn workspace web build",
     "lint": "biome check .",
     "format": "biome check --write .",

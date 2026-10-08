@@ -1,8 +1,4 @@
-import type { RequestHandler } from 'express';
 import morgan from 'morgan';
+import { config } from './config';
 
-const silent: RequestHandler = (_req, _res, next) => {
-  next();
-};
-
-export const logger: RequestHandler = process.env.NODE_ENV === 'test' ? silent : morgan('dev');
+export const logger = morgan(config.logFormat);

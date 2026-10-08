@@ -23,9 +23,27 @@ yarn dev:server
 yarn dev:web
 ```
 
-The API listens on port `8080` (override with `PORT`). Open the UI at `http://localhost:5173`. The page calls `http://localhost:8080` directly. Helmet sets the security headers, and `cors` allows `localhost` and `127.0.0.1` on any port. SQLite data is stored at `data/todos.sqlite` (override with `SQLITE_PATH`).
+The API reads `server/config/`. The UI reads `web/config/`. `APP_ENV` selects the API file (`local` when unset):
 
-`yarn start` runs the API only. `yarn build` writes the UI to `web/dist`.
+| API | UI | Use |
+| --- | --- | --- |
+| `server/config/.env.local` | `web/config/.env.local` | `yarn dev:server` and `yarn dev:web` |
+| `server/config/.env.docker` | `web/config/.env.docker` | `docker compose` and `yarn dev:web:docker` |
+| `server/config/.env.dev` | `web/config/.env.dev` | Future shared dev. Placeholder host only. |
+| `server/config/.env.uat` | `web/config/.env.uat` | Future UAT. Placeholder host only. |
+| `server/config/.env.test` | `web/config/.env.test` | `yarn test` |
+
+`DB_NAME` is the SQLite file when `DB_DIALECT=sqlite` (the test file sets `:memory:`), and the SQL Server catalog when `DB_DIALECT=mssql`. SQL Server also uses `DB_HOST`, `DB_PORT`, `DB_USER`, and `DB_PASSWORD`. On startup the API prints `Database sqlite :memory:` or `Database mssql localhost/TodoApp`.
+
+The local API listens on port `8000`. Open the UI at `http://localhost:3000`. The page calls `VITE_API_ORIGIN` from the matching UI file. `yarn dev:web` and `yarn build` read `web/config/.env.local`. Vite reserves the mode name `local`, so those commands use Vite's normal modes and still open that file. A later dev or UAT bundle is `yarn workspace web exec vite build --mode dev` or `--mode uat`. Helmet sets the security headers, and `cors` allows `localhost` and `127.0.0.1` on any port.
+
+Start the database before the host API:
+
+```bash
+docker compose up --build todo-db
+```
+
+`yarn start` runs the API only. `yarn build` writes the UI with the local API origin. `yarn workspace web build` can take `--mode dev` or `--mode uat` later.
 
 ### Docker
 
@@ -33,7 +51,7 @@ The API listens on port `8080` (override with `PORT`). Open the UI at `http://lo
 docker compose up --build
 ```
 
-The SQLite file is persisted on the `./data` volume.
+This builds the API image and a SQL Server 2019 image, creates the `TodoApp` database, and starts both. The UI stays on the host with `yarn dev:web:docker`, which reads `web/config/.env.docker` and listens on port `3001`. Host ports are `1433` and `8080` for the database and API.
 
 ## Tests
 
@@ -54,7 +72,7 @@ API tests only:
 yarn workspace server test
 ```
 
-Tests use an in-memory SQLite database so they do not touch `data/todos.sqlite`.
+Tests load `server/config/.env.test`. That file sets `DB_DIALECT=sqlite` and `DB_NAME=:memory:`.
 
 ## API
 
@@ -82,7 +100,7 @@ List query parameters:
 Example:
 
 ```bash
-curl -s -X POST http://localhost:8080/api/v0/todos \
+curl -s -X POST http://localhost:8000/api/v0/todos \
   -H 'Content-Type: application/json' \
   -d '{"title":"Buy milk","dueDate":"2026-10-10"}'
 ```
@@ -91,7 +109,7 @@ curl -s -X POST http://localhost:8080/api/v0/todos \
 
 1. Start the API (`yarn dev:server`).
 2. In Postman: **Import** `postman/Todo-App.postman_collection.json` and `postman/Local.postman_environment.json`.
-3. Select the **Local** environment (`http://localhost:8080`).
+3. Select the **Local** environment (`http://localhost:8000`).
 4. Run **Create Todo** first. It writes `todoId` onto the Local environment so Get / Update / Complete / Incomplete / Delete reuse it.
 
 The collection includes status-code tests. Use **Run collection** to walk through CRUD in order.
@@ -100,9 +118,9 @@ The collection includes status-code tests. Use **Run collection** to walk throug
 
 - **Layers:** `main` → `createApp` → routers → controllers (`validation` + `handler`) → `todoService` → TypeORM `Todo` entity.
 - **Validation:** Joi schemas live with the model; a small `validate` middleware binds them to each controller (same pattern as webconf’s `express-validation`, which is no longer maintained).
-- **Persistence:** TypeORM 1.x `DataSource` + SQLite (`better-sqlite3`). Active Record (`Todo.create` / `find` / `save`) matches webconf. `synchronize: true` for the challenge; migrations would be the production follow-up.
+- **Persistence:** TypeORM 1.x `DataSource`. `DB_DIALECT=mssql` uses SQL Server. `DB_DIALECT=sqlite` uses `better-sqlite3`. Active Record (`Todo.create` / `find` / `save`) matches webconf. `synchronize: true` creates the `todo` table.
 - **Errors:** Shared `BaseError` types mapped to HTTP status codes (400 validation, 404 missing entity/route, 500 unexpected).
-- **Testing:** Service tests cover CRUD, filters, and not-found behavior. HTTP tests use Supertest against `createApp` with an in-memory database.
+- **Testing:** Service tests cover CRUD, filters, and not-found behavior. HTTP tests use Supertest against `createApp`. The database comes from `server/config/.env.test`.
 
 ## Assumptions
 
@@ -114,7 +132,7 @@ The collection includes status-code tests. Use **Run collection** to walk throug
 
 ## Trade-offs
 
-- SQLite instead of webconf’s SQL Server: same TypeORM architecture, much simpler local/test setup. Postgres can replace the driver later without changing controllers.
+- SQL Server for local and Docker. Automated tests stay on in-memory SQLite via `server/config/.env.test`.
 - Express 5, TypeORM 1.x (`DataSource` instead of `createConnection`), Biome instead of TSLint/ESLint/Prettier.
 - Create returns 201 and delete returns 204 (REST), rather than webconf’s 200-for-everything pattern.
 - The UI is one page (Vite, React, MUI). It does not add a second backend.

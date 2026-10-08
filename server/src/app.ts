@@ -2,7 +2,7 @@ import type { Server } from 'node:http';
 import express, { type Application, type Request, type Response, Router } from 'express';
 import status from 'http-status';
 import type { DataSource } from 'typeorm';
-import { port } from './config';
+import { config } from './config';
 import { globalErrorHandler, HttpError, httpErrorTransformer } from './errors';
 import { logger } from './logger';
 import { initDb } from './providers/db';
@@ -40,7 +40,7 @@ export async function createApp(dataSource?: DataSource): Promise<Application> {
 
 export async function startApp(): Promise<Server> {
   const app = await createApp();
-  const server = app.listen(port);
-  console.info(`Service started. Waiting for requests on port ${port}.`);
+  const server = app.listen(config.port);
+  console.info(`Service started. Waiting for requests on port ${config.port}.`);
   return server;
 }

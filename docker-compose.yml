@@ -1,11 +1,30 @@
 services:
+  todo-db:
+    build:
+      context: ./database
+    platform: linux/amd64
+    ports:
+      - '1433:1433'
+    env_file:
+      - ./server/config/.env.docker
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          '/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "$$SA_PASSWORD" -Q "SELECT 1" || exit 1'
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
   app:
     build:
       context: .
       dockerfile: server/Dockerfile
     ports:
       - '8080:8080'
-    environment:
-      - PORT=8080
-    volumes:
-      - ./data:/usr/src/app/data
+    env_file:
+      - ./server/config/.env.docker
+    depends_on:
+      todo-db:
+        condition: service_healthy

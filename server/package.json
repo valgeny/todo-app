@@ -7,7 +7,7 @@
   "scripts": {
     "start": "ts-node -r tsconfig-paths/register --transpile-only src/main.ts",
     "debug": "nodemon -e ts --watch src --exec \"yarn start\"",
-    "test": "NODE_ENV=test c8 mocha"
+    "test": "APP_ENV=test NODE_ENV=test c8 mocha"
   },
   "engines": {
     "node": ">=20.0.0"
@@ -16,13 +16,16 @@
   "dependencies": {
     "better-sqlite3": "^12.11.1",
     "cors": "^2.8.6",
+    "dotenv": "^18.0.6",
     "express": "^5.2.1",
     "helmet": "^8.3.0",
     "http-status": "^2.1.0",
     "joi": "^18.2.9",
     "morgan": "^1.12.1",
+    "mssql": "^12.7.4",
     "reflect-metadata": "^0.2.2",
-    "typeorm": "^1.1.2"
+    "typeorm": "^1.1.2",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^9.6.0",

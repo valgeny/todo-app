@@ -18,7 +18,7 @@ describe('todoService', () => {
 
   beforeEach(async () => {
     await closeDb();
-    await initDb(createDataSource({ database: ':memory:', logging: false }));
+    await initDb(createDataSource({ logging: false }));
   });
 
   it('creates a todo with defaults', async () => {

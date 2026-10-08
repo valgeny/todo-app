@@ -15,7 +15,7 @@ export class Todo extends BaseEntity {
   @Column({ name: 'due_date', type: 'date', nullable: true })
   dueDate!: string | Date | null;
 
-  @Column({ name: 'is_completed', type: 'boolean', default: false })
+  @Column({ name: 'is_completed', default: false })
   isCompleted!: boolean;
 
   @CreateDateColumn({ name: 'created_at' })
