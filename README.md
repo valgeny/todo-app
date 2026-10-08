@@ -5,12 +5,19 @@ REST API and a small React page for managing to-do items. The API follows the we
 ## Requirements
 
 - Node.js 20 or later
-- Yarn 1 (classic)
+- Yarn modern
 
 ## Build / run
 
 ```bash
 yarn install
+```
+
+Copy the examples first. Env files are gitignored:
+
+```bash
+cp server/config/.env.example server/config/.env.local
+cp web/config/.env.example web/config/.env.local
 ```
 
 Start the backend and the frontend in two terminals:
@@ -23,6 +30,8 @@ yarn dev:server
 yarn dev:web
 ```
 
+The example API file uses SQLite (`DB_DIALECT=sqlite`, `DB_NAME=data/todo.sqlite`). Uncomment the SQL Server block in that file to use `mssql` instead. `LOG_FORMAT` is optional and defaults to `dev`.
+
 The API reads `server/config/`. The UI reads `web/config/`. `APP_ENV` selects the API file (`local` when unset):
 
 | API | UI | Use |
@@ -33,11 +42,11 @@ The API reads `server/config/`. The UI reads `web/config/`. `APP_ENV` selects th
 | `server/config/.env.uat` | `web/config/.env.uat` | Future UAT. Placeholder host only. |
 | `server/config/.env.test` | `web/config/.env.test` | `yarn test` |
 
-`DB_NAME` is the SQLite file when `DB_DIALECT=sqlite` (the test file sets `:memory:`), and the SQL Server catalog when `DB_DIALECT=mssql`. SQL Server also uses `DB_HOST`, `DB_PORT`, `DB_USER`, and `DB_PASSWORD`. On startup the API prints `Database sqlite :memory:` or `Database mssql localhost/TodoApp`.
+`DB_NAME` is the SQLite file when `DB_DIALECT=sqlite` (`:memory:` disappears when the process exits), and the SQL Server catalog when `DB_DIALECT=mssql`. SQL Server also uses `DB_HOST`, `DB_PORT`, `DB_USER`, and `DB_PASSWORD`. On startup the API prints `Database sqlite data/todo.sqlite` or `Database mssql localhost/TodoApp`.
 
-The local API listens on port `8000`. Open the UI at `http://localhost:3000`. The page calls `VITE_API_ORIGIN` from the matching UI file. `yarn dev:web` and `yarn build` read `web/config/.env.local`. Vite reserves the mode name `local`, so those commands use Vite's normal modes and still open that file. A later dev or UAT bundle is `yarn workspace web exec vite build --mode dev` or `--mode uat`. Helmet sets the security headers, and `cors` allows `localhost` and `127.0.0.1` on any port.
+The local API listens on port `8000`. Open the UI at `http://localhost:3000`. `VITE_ORIGIN` is the page address, and `VITE_API_ORIGIN` is the API the page calls. `yarn dev:web` and `yarn build` read `web/config/.env.local`. Vite reserves the mode name `local`, so those commands use Vite's normal modes and still open that file. A later dev or UAT bundle is `yarn workspace web exec vite build --mode dev` or `--mode uat`. Helmet sets the security headers, and `cors` allows `localhost` and `127.0.0.1` on any port.
 
-Start the database before the host API:
+For SQL Server on the host, start the database before the API:
 
 ```bash
 docker compose up --build todo-db
@@ -47,11 +56,35 @@ docker compose up --build todo-db
 
 ### Docker
 
+Copy the examples to `server/config/.env.docker` and `web/config/.env.docker`. In the API file, switch on the SQL Server block, set `APP_ENV=docker`, `PORT=8080`, and `DB_HOST=todo-db`, and add `SA_PASSWORD`, `MSSQL_SA_PASSWORD`, `ACCEPT_EULA=Y`, and `MSSQL_PID=Express` for the database container. In the UI file, set `VITE_ORIGIN=http://localhost:3001` and `VITE_API_ORIGIN=http://localhost:8080`.
+
 ```bash
 docker compose up --build
 ```
 
-This builds the API image and a SQL Server 2019 image, creates the `TodoApp` database, and starts both. The UI stays on the host with `yarn dev:web:docker`, which reads `web/config/.env.docker` and listens on port `3001`. Host ports are `1433` and `8080` for the database and API.
+In another terminal:
+
+```bash
+yarn dev:web:docker
+```
+
+### Codespaces
+
+On GitHub, open the repository with **Code** → **Codespaces** → **Create codespace on main**. The dev container installs dependencies and copies the env examples when those files are missing. It forwards the UI on port `3000` and the API on port `8000`.
+
+In the Codespace terminals:
+
+```bash
+yarn dev:server
+```
+
+```bash
+yarn dev:web
+```
+
+Open the forwarded UI port. The page calls `https://<codespace>-8000.app.github.dev`, and the API allows that Codespace origin. Use the SQLite example. The machine stops when it is idle, so this is a running dev session, not a deployment.
+
+This builds the API image and a SQL Server 2019 image, creates the `TodoApp` database, and starts both. The UI stays on the host. `yarn dev:web:docker` reads `web/config/.env.docker` and listens on port `3001`. Host ports are `1433` and `8080` for the database and API.
 
 ## Tests
 
@@ -108,9 +141,10 @@ curl -s -X POST http://localhost:8000/api/v0/todos \
 ## Postman
 
 1. Start the API (`yarn dev:server`).
-2. In Postman: **Import** `postman/Todo-App.postman_collection.json` and `postman/Local.postman_environment.json`.
-3. Select the **Local** environment (`http://localhost:8000`).
-4. Run **Create Todo** first. It writes `todoId` onto the Local environment so Get / Update / Complete / Incomplete / Delete reuse it.
+2. Import `postman/Todo-App.postman_collection.json`.
+3. Create a Local environment with `protocol` `http`, `host` `localhost`, and `port` `8000`. Postman environment files are gitignored.
+4. Select that environment.
+5. Run **Create Todo** first. It writes `todoId` onto the environment so Get / Update / Complete / Incomplete / Delete reuse it.
 
 The collection includes status-code tests. Use **Run collection** to walk through CRUD in order.
 
@@ -132,7 +166,7 @@ The collection includes status-code tests. Use **Run collection** to walk throug
 
 ## Trade-offs
 
-- SQL Server for local and Docker. Automated tests stay on in-memory SQLite via `server/config/.env.test`.
+- The example API config uses SQLite, so a checkout runs without SQL Server. Docker uses SQL Server. Automated tests stay on in-memory SQLite via `server/config/.env.test`.
 - Express 5, TypeORM 1.x (`DataSource` instead of `createConnection`), Biome instead of TSLint/ESLint/Prettier.
 - Create returns 201 and delete returns 204 (REST), rather than webconf’s 200-for-everything pattern.
 - The UI is one page (Vite, React, MUI). It does not add a second backend.
