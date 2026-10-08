@@ -1,0 +1,21 @@
+$kind: http-request
+description: Lists to-dos. Check the X-total-count header.
+url: "{{protocol}}://{{host}}:{{port}}/api/v0/todos?status=all&sortField=createdAt&sortOrder=DESC&limit=20&offset=0"
+method: GET
+queryParams:
+  status: all
+  sortField: createdAt
+  sortOrder: DESC
+  limit: "20"
+  offset: "0"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status is 200', function () {
+        pm.response.to.have.status(200);
+      });
+      pm.test('Body is an array', function () {
+        pm.expect(pm.response.json()).to.be.an('array');
+      });
+    language: text/javascript
+order: 2000

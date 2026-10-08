@@ -1,0 +1,27 @@
+$kind: http-request
+description: Creates a to-do and saves todoId on the Local environment for later requests.
+url: "{{protocol}}://{{host}}:{{port}}/api/v0/todos"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "title": "Buy milk",
+      "description": "2% milk from the store",
+      "dueDate": "2026-10-15"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status is 201', function () {
+        pm.response.to.have.status(201);
+      });
+      const body = pm.response.json();
+      pm.test('Returns a todoId', function () {
+        pm.expect(body.todoId).to.be.a('string');
+      });
+      pm.environment.set('todoId', body.todoId);
+    language: text/javascript
+order: 1000

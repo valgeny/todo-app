@@ -1,0 +1,394 @@
+{
+  "info": {
+    "_postman_id": "c4b5a47b-5a67-4f32-9c37-7f316b0013db",
+    "name": "Todo App",
+    "description": "CRUD collection for the To-Do List API. Select the Local environment before sending requests.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{protocol}}://{{host}}:{{port}}/health",
+          "protocol": "{{protocol}}",
+          "host": [
+            "{{host}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "health"
+          ]
+        },
+        "description": "Liveness check. Expect 204."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 204', function () {",
+              "  pm.response.to.have.status(204);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "id": "a0c25984-1083-439c-a0cc-addd2e527fd4"
+    },
+    {
+      "name": "Todos",
+      "item": [
+        {
+          "name": "Create Todo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Returns a todoId', function () {",
+                  "  pm.expect(body.todoId).to.be.a('string');",
+                  "});",
+                  "pm.environment.set('todoId', body.todoId);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Buy milk\",\n  \"description\": \"2% milk from the store\",\n  \"dueDate\": \"2026-10-15\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{protocol}}://{{host}}:{{port}}/api/v0/todos",
+              "protocol": "{{protocol}}",
+              "host": [
+                "{{host}}"
+              ],
+              "port": "{{port}}",
+              "path": [
+                "api",
+                "v0",
+                "todos"
+              ]
+            },
+            "description": "Creates a to-do and saves todoId on the Local environment for later requests."
+          },
+          "id": "051ec16b-9125-415f-8161-6879a5750d29"
+        },
+        {
+          "name": "List Todos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{protocol}}://{{host}}:{{port}}/api/v0/todos?status=all&sortField=createdAt&sortOrder=DESC&limit=20&offset=0",
+              "protocol": "{{protocol}}",
+              "host": [
+                "{{host}}"
+              ],
+              "port": "{{port}}",
+              "path": [
+                "api",
+                "v0",
+                "todos"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "all"
+                },
+                {
+                  "key": "sortField",
+                  "value": "createdAt"
+                },
+                {
+                  "key": "sortOrder",
+                  "value": "DESC"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "description": "Lists to-dos. Check the X-total-count header."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Body is an array', function () {",
+                  "  pm.expect(pm.response.json()).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "id": "2b6c2350-5337-4478-8c9f-67c3278cd499"
+        },
+        {
+          "name": "Get Todo",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{protocol}}://{{host}}:{{port}}/api/v0/todos/{{todoId}}",
+              "protocol": "{{protocol}}",
+              "host": [
+                "{{host}}"
+              ],
+              "port": "{{port}}",
+              "path": [
+                "api",
+                "v0",
+                "todos",
+                "{{todoId}}"
+              ]
+            },
+            "description": "Fetches one to-do by the todoId saved from Create Todo."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Matches saved todoId', function () {",
+                  "  pm.expect(pm.response.json().todoId).to.eql(pm.environment.get('todoId'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "id": "1391476d-70ff-449d-8e4e-24858dd7c130"
+        },
+        {
+          "name": "Update Todo",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Buy oat milk\",\n  \"description\": \"Updated description\",\n  \"dueDate\": \"2026-10-20\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{protocol}}://{{host}}:{{port}}/api/v0/todos/{{todoId}}",
+              "protocol": "{{protocol}}",
+              "host": [
+                "{{host}}"
+              ],
+              "port": "{{port}}",
+              "path": [
+                "api",
+                "v0",
+                "todos",
+                "{{todoId}}"
+              ]
+            },
+            "description": "Updates title, description, and/or dueDate. Does not change completion."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Title updated', function () {",
+                  "  pm.expect(pm.response.json().title).to.eql('Buy oat milk');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "id": "357a194d-c42e-4dfc-a395-6f4d86efdb9c"
+        },
+        {
+          "name": "Complete Todo",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isCompleted\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{protocol}}://{{host}}:{{port}}/api/v0/todos/{{todoId}}",
+              "protocol": "{{protocol}}",
+              "host": [
+                "{{host}}"
+              ],
+              "port": "{{port}}",
+              "path": [
+                "api",
+                "v0",
+                "todos",
+                "{{todoId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Marked complete', function () {",
+                  "  pm.expect(pm.response.json().isCompleted).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "id": "8de6587c-5a2b-4059-9ec0-fb821232c05c"
+        },
+        {
+          "name": "Incomplete Todo",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isCompleted\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{protocol}}://{{host}}:{{port}}/api/v0/todos/{{todoId}}",
+              "protocol": "{{protocol}}",
+              "host": [
+                "{{host}}"
+              ],
+              "port": "{{port}}",
+              "path": [
+                "api",
+                "v0",
+                "todos",
+                "{{todoId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Marked incomplete', function () {",
+                  "  pm.expect(pm.response.json().isCompleted).to.eql(false);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "id": "e48d5e9b-d5f9-4786-8998-2b7d45c9c3e9"
+        },
+        {
+          "name": "Delete Todo",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{protocol}}://{{host}}:{{port}}/api/v0/todos/{{todoId}}",
+              "protocol": "{{protocol}}",
+              "host": [
+                "{{host}}"
+              ],
+              "port": "{{port}}",
+              "path": [
+                "api",
+                "v0",
+                "todos",
+                "{{todoId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 204', function () {",
+                  "  pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "id": "e5846023-e060-4c20-b9d3-3e77dfff2d33"
+        }
+      ],
+      "id": "b7f2335e-2f5f-4bbf-94e1-a5cd81c4b957"
+    }
+  ]
+}

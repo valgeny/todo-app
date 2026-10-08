@@ -1,0 +1,15 @@
+$kind: http-request
+description: Fetches one to-do by the todoId saved from Create Todo.
+url: "{{protocol}}://{{host}}:{{port}}/api/v0/todos/{{todoId}}"
+method: GET
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status is 200', function () {
+        pm.response.to.have.status(200);
+      });
+      pm.test('Matches saved todoId', function () {
+        pm.expect(pm.response.json().todoId).to.eql(pm.environment.get('todoId'));
+      });
+    language: text/javascript
+order: 3000

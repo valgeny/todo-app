@@ -1,0 +1,4 @@
+$kind: collection
+id: 3f6c8a12-9d4e-4b71-a2c8-0e1f2a3b4c5d
+name: Todo App
+description: CRUD collection for the To-Do List API. Select the Local environment before sending requests.

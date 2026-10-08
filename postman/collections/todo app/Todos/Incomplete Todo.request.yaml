@@ -1,0 +1,22 @@
+$kind: http-request
+url: "{{protocol}}://{{host}}:{{port}}/api/v0/todos/{{todoId}}"
+method: PATCH
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "isCompleted": false
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status is 200', function () {
+        pm.response.to.have.status(200);
+      });
+      pm.test('Marked incomplete', function () {
+        pm.expect(pm.response.json().isCompleted).to.eql(false);
+      });
+    language: text/javascript
+order: 6000

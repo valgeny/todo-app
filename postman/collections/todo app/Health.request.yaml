@@ -1,0 +1,12 @@
+$kind: http-request
+description: Liveness check. Expect 204.
+url: "{{protocol}}://{{host}}:{{port}}/health"
+method: GET
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status is 204', function () {
+        pm.response.to.have.status(204);
+      });
+    language: text/javascript
+order: 1000

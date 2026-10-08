@@ -1,0 +1,13 @@
+cloudResources:
+  collections:
+    ../postman/Todo-App.postman_collection.json: 28629746-3ea743c0-8eac-4d66-ba85-8528edb1b835
+    ../postman/collections/todo app: 28629746-3aa01cb8-975c-4715-b7f9-a2abb6eb82de
+  environments:
+    ../postman/Local.postman_environment.json: 28629746-0a3e60e5-afe1-4d44-a707-f1dafff1d17b
+localResources:
+  collections:
+    - ../postman/Todo-App.postman_collection.json
+  environments:
+    - ../postman/Local.postman_environment.json
+workspace:
+  id: 525b0584-0c54-4bbf-8d4e-860f6e694630

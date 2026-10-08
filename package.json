@@ -1,0 +1,43 @@
+{
+  "name": "todo-app",
+  "version": "1.0.0",
+  "description": "To-do list REST API",
+  "main": "dist/main.js",
+  "scripts": {
+    "start": "ts-node --transpile-only src/main.ts",
+    "debug": "nodemon -e ts --watch src --exec \"npm start\"",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "unit": "NODE_ENV=test mocha",
+    "test": "npm run lint && npm run coverage",
+    "coverage": "NODE_ENV=test c8 mocha"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "better-sqlite3": "^12.11.1",
+    "express": "^5.2.1",
+    "http-status": "^2.1.0",
+    "joi": "^18.2.9",
+    "morgan": "^1.12.1",
+    "reflect-metadata": "^0.2.2",
+    "typeorm": "^1.1.2"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.15",
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/express": "^5.0.6",
+    "@types/mocha": "^10.0.10",
+    "@types/morgan": "^1.9.10",
+    "@types/node": "^26.6.4",
+    "@types/supertest": "^7.2.1",
+    "c8": "^12.0.0",
+    "mocha": "^12.0.3",
+    "nodemon": "^3.1.14",
+    "supertest": "^7.3.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.3"
+  }
+}
