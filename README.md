@@ -107,6 +107,8 @@ GitHub Actions uploads Allure and Playwright HTML reports as downloadable artifa
 
 On pushes to `main`, the same reports are also published to GitHub Pages as a small static site (`/allure/`, `/playwright/`). Enable that once under **Settings → Pages → Source: GitHub Actions**.
 
+Pull requests also run the **Biome** workflow (`mongolyy/reviewdog-action-biome`), which posts inline review comments for lint findings on changed lines.
+
 Lint and format only:
 
 ```bash
