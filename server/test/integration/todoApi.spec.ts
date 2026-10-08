@@ -4,6 +4,9 @@ import { baseUrl, endpoint, loopbackUrl, startTestApp, stopTestApp } from '@test
 import type { Application } from 'express';
 import request from 'supertest';
 
+const positive = { tags: ['positive'] };
+const negative = { tags: ['negative'] };
+
 describe('todo API', () => {
   let app: Application;
 
@@ -15,11 +18,11 @@ describe('todo API', () => {
     await stopTestApp();
   });
 
-  it('returns 204 on health', async () => {
+  it('returns 204 on health', positive, async () => {
     await request(app).get(endpoint('/health')).expect(204);
   });
 
-  it('creates, lists, and views a todo', async () => {
+  it('creates, lists, and views a todo', positive, async () => {
     const created = await request(app)
       .post(endpoint('/api/v0/todos'))
       .send({ title: 'Write tests', description: 'Cover CRUD', dueDate: '2026-10-09' })
@@ -40,7 +43,7 @@ describe('todo API', () => {
     assert.equal(viewed.body.title, 'Write tests');
   });
 
-  it('updates fields, toggles completion, and deletes', async () => {
+  it('updates fields, toggles completion, and deletes', positive, async () => {
     const created = await request(app)
       .post(endpoint('/api/v0/todos'))
       .send({ title: 'Ship it' })
@@ -74,7 +77,22 @@ describe('todo API', () => {
       .expect(404);
   });
 
-  it('rejects invalid payloads with 400', async () => {
+  it('filters overdue items', positive, async () => {
+    await request(app)
+      .post(endpoint('/api/v0/todos'))
+      .send({ title: 'Late', dueDate: '2001-01-01' })
+      .expect(201);
+    await request(app)
+      .post(endpoint('/api/v0/todos'))
+      .send({ title: 'Later', dueDate: '2099-01-01' })
+      .expect(201);
+
+    const overdue = await request(app).get(endpoint('/api/v0/todos?status=overdue')).expect(200);
+    assert.equal(overdue.body.length, 1);
+    assert.equal(overdue.body[0].title, 'Late');
+  });
+
+  it('rejects invalid payloads with 400', negative, async () => {
     await request(app).post(endpoint('/api/v0/todos')).send({}).expect(400);
     await request(app)
       .post(endpoint('/api/v0/todos'))
@@ -99,22 +117,7 @@ describe('todo API', () => {
       .expect(400);
   });
 
-  it('filters overdue items', async () => {
-    await request(app)
-      .post(endpoint('/api/v0/todos'))
-      .send({ title: 'Late', dueDate: '2001-01-01' })
-      .expect(201);
-    await request(app)
-      .post(endpoint('/api/v0/todos'))
-      .send({ title: 'Later', dueDate: '2099-01-01' })
-      .expect(201);
-
-    const overdue = await request(app).get(endpoint('/api/v0/todos?status=overdue')).expect(200);
-    assert.equal(overdue.body.length, 1);
-    assert.equal(overdue.body[0].title, 'Late');
-  });
-
-  it('allows CORS only for localhost and Codespaces origins', async () => {
+  it('allows CORS only for localhost and Codespaces origins', negative, async () => {
     const allowed = await request(app).get(endpoint('/health')).set('Origin', baseUrl).expect(204);
     assert.equal(allowed.headers['access-control-allow-origin'], baseUrl);
 
@@ -139,7 +142,7 @@ describe('todo API', () => {
     assert.equal(blocked.headers['access-control-allow-origin'], undefined);
   });
 
-  it('returns 404 for unknown routes and ids', async () => {
+  it('returns 404 for unknown routes and ids', negative, async () => {
     await request(app).get(endpoint('/api/v0/nope')).expect(404);
     await request(app)
       .get(endpoint('/api/v0/todos/11111111-1111-1111-1111-111111111111'))

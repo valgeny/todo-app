@@ -11,6 +11,9 @@ import {
   updateTodo
 } from '@/services/todoService';
 
+const positive = { tags: ['positive'] };
+const negative = { tags: ['negative'] };
+
 describe('todoService', () => {
   after(async () => {
     await closeDb();
@@ -21,7 +24,7 @@ describe('todoService', () => {
     await initDb(createDataSource({ logging: false }));
   });
 
-  it('creates a todo with defaults', async () => {
+  it('creates a todo with defaults', positive, async () => {
     const todo = await createTodo({ title: 'Buy milk' });
     assert.equal(todo.title, 'Buy milk');
     assert.equal(todo.description, null);
@@ -31,7 +34,7 @@ describe('todoService', () => {
     assert.ok(todo.createdAt);
   });
 
-  it('lists, filters, and sorts todos', async () => {
+  it('lists, filters, and sorts todos', positive, async () => {
     await createTodo({ title: 'B task', dueDate: '2000-01-01' });
     await createTodo({ title: 'A task', dueDate: '2099-01-01' });
     const completed = await createTodo({ title: 'C task' });
@@ -70,7 +73,7 @@ describe('todoService', () => {
     assert.equal(overdue.items[0].title, 'B task');
   });
 
-  it('updates, completes, and deletes a todo', async () => {
+  it('updates, completes, and deletes a todo', positive, async () => {
     const created = await createTodo({ title: 'Draft' });
     const updated = await updateTodo(created.todoId, {
       title: 'Ready',
@@ -90,7 +93,7 @@ describe('todoService', () => {
     await assert.rejects(() => getTodoById(created.todoId), NotFoundError);
   });
 
-  it('throws NotFoundError for unknown ids', async () => {
+  it('throws NotFoundError for unknown ids', negative, async () => {
     const missingId = '11111111-1111-1111-1111-111111111111';
     await assert.rejects(() => getTodoById(missingId), NotFoundError);
     await assert.rejects(() => updateTodo(missingId, { title: 'Nope' }), NotFoundError);
