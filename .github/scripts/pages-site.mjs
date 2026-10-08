@@ -8,7 +8,7 @@
  * Slots are `latest` (overwritten) or a URL-safe unix timestamp.
  *
  * Commands:
- *   prepare  --site DIR [--prev DIR]
+ *   prepare  --site DIR [--prev DIR]...
  *   publish  --site DIR --report NAME --source DIR --slots SLOT[,SLOT...] [--base BRANCH]
  *   finalize --site DIR [--keep N] [--run-url URL] [--history-slot SLOT] [--base BRANCH]
  *   sanitize-branch NAME
@@ -29,7 +29,7 @@ const RESERVED_TOP = new Set(["index.html", "allure", "playwright", "latest"]);
 
 function usage(exitCode = 1) {
   console.error(`Usage:
-  pages-site.mjs prepare  --site DIR [--prev DIR]
+  pages-site.mjs prepare  --site DIR [--prev DIR]...
   pages-site.mjs publish  --site DIR --report NAME --source DIR --slots SLOT[,SLOT...] [--base BRANCH]
   pages-site.mjs finalize --site DIR [--keep 30] [--run-url URL] [--history-slot SLOT] [--base BRANCH]
   pages-site.mjs sanitize-branch NAME
@@ -39,6 +39,7 @@ function usage(exitCode = 1) {
 
 function parseArgs(argv) {
   const out = { _: [] };
+  const repeatable = new Set(["prev"]);
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg.startsWith("--")) {
@@ -46,6 +47,10 @@ function parseArgs(argv) {
       const next = argv[i + 1];
       if (!next || next.startsWith("--")) {
         out[key] = true;
+      } else if (repeatable.has(key)) {
+        if (!Array.isArray(out[key])) out[key] = [];
+        out[key].push(next);
+        i++;
       } else {
         out[key] = next;
         i++;
@@ -125,15 +130,51 @@ function listBranchPreviews(siteDir) {
     .sort();
 }
 
-function prepare({ site, prev }) {
-  const siteDir = resolve(site);
+/** Older publishes used /allure/index.html instead of /allure/latest/. */
+function migrateLegacyReports(siteDir) {
+  for (const report of ["allure", "playwright"]) {
+    const reportDir = join(siteDir, report);
+    const latestDir = join(reportDir, "latest");
+    if (!hasIndex(reportDir) || hasIndex(latestDir)) continue;
+
+    const staging = join(siteDir, `.migrate-${report}`);
+    rmSync(staging, { recursive: true, force: true });
+    cpSync(reportDir, staging, { recursive: true });
+    rmSync(reportDir, { recursive: true, force: true });
+    mkdirSync(latestDir, { recursive: true });
+    cpSync(staging, latestDir, { recursive: true });
+    rmSync(staging, { recursive: true, force: true });
+    console.log(`Migrated legacy /${report}/ → /${report}/latest/`);
+  }
+}
+
+function prepare(args) {
+  const siteDir = resolve(args.site);
   rmSync(siteDir, { recursive: true, force: true });
   mkdirSync(siteDir, { recursive: true });
 
-  if (prev && isDir(prev)) {
-    cpSync(resolve(prev), siteDir, { recursive: true });
+  // `--prev` may be repeated; later trees overlay earlier ones (branch on top of main).
+  const prevs = []
+    .concat(args.prev || [])
+    .flat()
+    .filter(Boolean);
+
+  // parseArgs only keeps the last --prev; also accept comma-separated --prev a,b
+  const expanded = [];
+  for (const prev of prevs) {
+    for (const part of String(prev).split(",")) {
+      const trimmed = part.trim();
+      if (trimmed) expanded.push(trimmed);
+    }
   }
 
+  for (const prev of expanded) {
+    if (!isDir(prev)) continue;
+    cpSync(resolve(prev), siteDir, { recursive: true });
+    console.log(`Merged prev ${resolve(prev)}`);
+  }
+
+  migrateLegacyReports(siteDir);
   console.log(`Prepared ${siteDir}`);
 }
 

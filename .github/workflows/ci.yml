@@ -108,6 +108,19 @@ jobs:
           if_no_artifact_found: warn
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
+      # Keep main reports when a feature branch publishes (latest pages-site may be branch-only).
+      - name: Restore main Pages baseline
+        if: ${{ always() && github.event_name == 'push' && github.ref_name != 'main' }}
+        uses: dawidd6/action-download-artifact@v6
+        continue-on-error: true
+        with:
+          name: github-pages
+          workflow: ci.yml
+          branch: main
+          path: report-site-main-pages
+          if_no_artifact_found: warn
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Resolve publish target
         id: slots
         if: ${{ always() && github.event_name == 'push' }}
@@ -132,9 +145,25 @@ jobs:
         id: prepare
         if: ${{ always() && steps.slots.outcome == 'success' }}
         run: |
+          set -euo pipefail
+          PREV_ARGS=()
+
+          # Unpack official Pages artifact from main when present (artifact.tar).
+          if [ -f report-site-main-pages/artifact.tar ]; then
+            mkdir -p report-site-main
+            tar -xf report-site-main-pages/artifact.tar -C report-site-main
+            PREV_ARGS+=(--prev report-site-main)
+          elif [ -d report-site-main-pages ]; then
+            PREV_ARGS+=(--prev report-site-main-pages)
+          fi
+
+          if [ -d report-site-prev ]; then
+            PREV_ARGS+=(--prev report-site-prev)
+          fi
+
           node .github/scripts/pages-site.mjs prepare \
             --site report-site \
-            --prev report-site-prev
+            "${PREV_ARGS[@]}"
 
       - name: Publish integration report
         if: ${{ always() && steps.prepare.outcome == 'success' }}
