@@ -24,6 +24,7 @@ export function TodoCard({
 }) {
   return (
     <Box
+      data-test="todo-card"
       sx={{
         bgcolor: '#fff4b8',
         border: '1px solid #e6d36a',
@@ -34,6 +35,7 @@ export function TodoCard({
       <Stack spacing={1}>
         <Stack direction="row" spacing={1} alignItems="flex-start">
           <Checkbox
+            data-test="todo-complete"
             checked={todo.isCompleted}
             disabled={busy}
             sx={{ p: 0.5 }}
@@ -76,10 +78,16 @@ export function TodoCard({
           </Box>
         </Stack>
         <Stack direction="row" spacing={1} justifyContent="flex-end">
-          <Button size="small" onClick={onEdit}>
+          <Button data-test="todo-edit" size="small" onClick={onEdit}>
             Edit
           </Button>
-          <Button size="small" color="error" disabled={busy} onClick={onDelete}>
+          <Button
+            data-test="todo-delete"
+            size="small"
+            color="error"
+            disabled={busy}
+            onClick={onDelete}
+          >
             Delete
           </Button>
         </Stack>

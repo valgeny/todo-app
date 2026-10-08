@@ -1,7 +1,0 @@
-{
-  "require": ["reflect-metadata", "ts-node/register", "tsconfig-paths/register"],
-  "extension": ["ts"],
-  "spec": "test/spec/**/*.spec.ts",
-  "timeout": 10000,
-  "exit": true
-}

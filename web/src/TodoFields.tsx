@@ -18,6 +18,7 @@ export function TodoFields({
         value={draft.title}
         required
         onChange={event => onChange({ ...draft, title: event.target.value })}
+        slotProps={{ htmlInput: { 'data-test': 'todo-title' } }}
       />
       <TextField
         id={`${idPrefix}-description`}
@@ -26,6 +27,7 @@ export function TodoFields({
         multiline
         minRows={2}
         onChange={event => onChange({ ...draft, description: event.target.value })}
+        slotProps={{ htmlInput: { 'data-test': 'todo-description' } }}
       />
       <TextField
         id={`${idPrefix}-due`}
@@ -33,7 +35,10 @@ export function TodoFields({
         type="date"
         value={draft.dueDate}
         onChange={event => onChange({ ...draft, dueDate: event.target.value })}
-        slotProps={{ inputLabel: { shrink: true } }}
+        slotProps={{
+          inputLabel: { shrink: true },
+          htmlInput: { 'data-test': 'todo-due-date' }
+        }}
       />
     </Stack>
   );

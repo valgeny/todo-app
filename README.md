@@ -92,20 +92,19 @@ Open the forwarded UI port. The page calls `https://<codespace>-8000.app.github.
 yarn test
 ```
 
-That runs Biome from the repo root, then Mocha with coverage (`c8`) in `server/`. Lint/format only:
+That runs Biome, then the integration tests with coverage (`c8`). Integration tests call the API and the todo service in-process. They load `server/config/.env.test`, which uses an in-memory SQLite database. End-to-end tests drive the UI in Chromium.
+
+```bash
+yarn test:integration
+yarn test:e2e
+```
+
+`yarn test:integration:report` opens the Allure HTML report for integration tests. Each HTTP call to the app under test is attached as a request/response step. `yarn test:e2e:report` opens the Playwright HTML report. Lint and format only:
 
 ```bash
 yarn lint
 yarn format
 ```
-
-API tests only:
-
-```bash
-yarn workspace server test
-```
-
-Tests load `server/config/.env.test`. That file sets `DB_DIALECT=sqlite` and `DB_NAME=:memory:`.
 
 ## API
 

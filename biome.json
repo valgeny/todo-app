@@ -9,6 +9,8 @@
     "includes": [
       "server/**",
       "web/**",
+      "e2e/**",
+      "playwright.config.ts",
       "package.json",
       "!**/node_modules",
       "!**/dist",

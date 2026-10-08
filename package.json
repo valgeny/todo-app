@@ -15,7 +15,11 @@
     "build": "yarn workspace web build",
     "lint": "biome check .",
     "format": "biome check --write .",
-    "test": "yarn lint && yarn workspace server test"
+    "test": "yarn lint && yarn test:integration",
+    "test:integration": "yarn workspace server test",
+    "test:integration:report": "allure open allure-report",
+    "test:e2e": "playwright test",
+    "test:e2e:report": "playwright show-report"
   },
   "packageManager": "yarn@1.22.22",
   "engines": {
@@ -23,6 +27,7 @@
   },
   "license": "UNLICENSED",
   "devDependencies": {
-    "@biomejs/biome": "^2.5.15"
+    "@biomejs/biome": "^2.5.15",
+    "@playwright/test": "^1.64.0"
   }
 }
