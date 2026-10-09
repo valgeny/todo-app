@@ -1,16 +1,16 @@
-name: Biome
+name: Linter
 
 on:
   pull_request:
     branches: [main]
 
 concurrency:
-  group: biome-${{ github.workflow }}-${{ github.ref }}
+  group: linter-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   lint:
-    name: Lint with review comments
+    name: Linter
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
