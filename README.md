@@ -92,14 +92,14 @@ Open the forwarded UI port. The page calls `https://<codespace>-8000.app.github.
 yarn test
 ```
 
-That runs Biome, then the integration tests with coverage (`c8`). Integration tests call the API and the todo service in-process. They load `server/config/.env.test`, which uses an in-memory SQLite database. End-to-end tests drive the UI in Chromium.
+That runs Biome, then the integration tests with coverage (`c8`). Specs live under `tests/integration/` and `tests/e2e/`. Integration tests call the API and the todo service in-process (SQLite via `server/config/.env.test`). End-to-end tests drive the UI in Chromium. All generated outputs go under `test-results/` (`allure/`, `playwright/`, `coverage/`, …).
 
 ```bash
 yarn test:integration
 yarn test:e2e
 ```
 
-`yarn test:integration:report` opens the Allure HTML report for integration tests. Each HTTP call to the app under test is attached as a request/response step. `yarn test:e2e:report` opens the Playwright HTML report.
+`yarn test:integration:report` opens the Allure HTML report. Each HTTP call to the app under test is attached as a request/response step. `yarn test:e2e:report` opens the Playwright HTML report.
 
 ### CI reports
 

@@ -9,12 +9,16 @@
     "includes": [
       "server/**",
       "web/**",
-      "e2e/**",
+      "tests/**",
       "playwright.config.ts",
       "package.json",
       "!**/node_modules",
       "!**/dist",
-      "!**/coverage"
+      "!**/coverage",
+      "!test-results",
+      "!redoc-report",
+      "!allure-report",
+      "!playwright-report"
     ]
   },
   "formatter": {

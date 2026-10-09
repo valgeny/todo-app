@@ -10,7 +10,6 @@ pids
 *.pid.lock
 
 lib-cov/
-coverage/
 .nyc_output/
 .grunt
 
@@ -36,9 +35,14 @@ dist/
 data/*.sqlite
 data/*.sqlite-*
 
-playwright-report/
-allure-report/
+# Generated reports and test outputs (canonical)
+test-results/
 redoc-report/
+
+# Legacy locations (pre test-results/ consolidation)
+coverage/
+**/coverage/
+allure-report/
+playwright-report/
 allure-results/
 **/allure-results/
-test-results/

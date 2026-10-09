@@ -6,17 +6,17 @@ const apiOrigin = 'http://127.0.0.1:8090';
 const uiOrigin = 'http://127.0.0.1:3100';
 
 export default defineConfig({
-  testDir: 'e2e',
+  testDir: 'tests/e2e',
   fullyParallel: false,
   workers: 1,
   retries: 0,
   reporter: [
     ['list'],
-    ['html', { open: 'never', outputFolder: 'playwright-report' }],
+    ['html', { open: 'never', outputFolder: 'test-results/playwright' }],
     // Annotations on the Actions run / PR file view when GITHUB_ACTIONS is set.
     ['github']
   ],
-  outputDir: 'test-results',
+  outputDir: 'test-results/playwright-output',
   use: {
     baseURL: uiOrigin,
     testIdAttribute: 'data-test',
