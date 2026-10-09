@@ -55,3 +55,5 @@ yarn format
 | GitHub Pages | Same reports published on **push** under `/latest/` and timestamp slots |
 
 Details of publish/deploy: [CI/CD](ci-cd.md).
+
+Committed UI captures from these runs: [Screenshots](screenshots.md).

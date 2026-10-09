@@ -4,6 +4,10 @@ REST API and a small React page for managing to-do items. The backend follows th
 
 Yarn workspaces: `server/` (API) and `web/` (Vite + React + Material UI).
 
+![To-do list with a yellow card (Buy milk)](docs/screenshots/intro-todo-list.png)
+
+More UI captures from e2e: **[Screenshots](docs/screenshots.md)**.
+
 ## Live outputs
 
 Every push to a branch builds, tests, and publishes report sites to **GitHub Pages** (`latest` plus timestamped history; non-`main` branches under `/<branch>/`).
@@ -78,4 +82,5 @@ Publish/Deploy run on **branch pushes** only (`github-pages` rejects `refs/pull/
 | [Codespaces](docs/codespaces.md) | Create your own Codespace; run API, UI, and tests |
 | [API](docs/api.md) | Contract, Zod → OpenAPI/Redoc, Postman |
 | [Testing](docs/testing.md) | Integration + e2e strategy, local and published reports |
+| [Screenshots](docs/screenshots.md) | UI captures from Playwright e2e |
 | [CI/CD](docs/ci-cd.md) | Workflows, Pages publish/deploy |
