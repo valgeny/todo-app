@@ -11,9 +11,9 @@ Every push to a branch builds, tests, and publishes report sites to **GitHub Pag
 | Output | Latest (`main`) |
 | --- | --- |
 | **Site index** | [valgeny.github.io/todo-app](https://valgeny.github.io/todo-app/) |
-| **API docs (Redoc)** | […/redoc/latest/](https://valgeny.github.io/todo-app/redoc/latest/) |
-| **Integration report (Allure)** | […/allure/latest/](https://valgeny.github.io/todo-app/allure/latest/) |
-| **E2E report (Playwright)** | […/playwright/latest/](https://valgeny.github.io/todo-app/playwright/latest/) |
+| **OpenAPI docs (Swagger/Redoc)** | […/redoc/latest/](https://valgeny.github.io/todo-app/redoc/latest/) |
+| **Integration Test report (Allure)** | […/allure/latest/](https://valgeny.github.io/todo-app/allure/latest/) |
+| **E2E Test report (Playwright)** | […/playwright/latest/](https://valgeny.github.io/todo-app/playwright/latest/) |
 
 CI also uploads Allure and Playwright HTML as downloadable Actions artifacts (14-day retention). Details: [CI/CD](docs/ci-cd.md) · [Testing](docs/testing.md) · [API](docs/api.md).
 
@@ -44,6 +44,17 @@ CI also uploads Allure and Playwright HTML as downloadable Actions artifacts (14
 - E2E under `tests/e2e/` (Playwright Chromium)
 - Reports and Redoc published on every push (see [Live outputs](#live-outputs))
 
+## Install, run, and test
+
+Requires Node.js 24+ and Yarn classic. Copy/paste commands live in the guides below — use those pages, not this summary.
+
+| Goal | Where | CLI you will find there |
+| --- | --- | --- |
+| Install + env files | **[Quick start](docs/getting-started.md)** | `yarn install`, `cp …/.env.example …` |
+| Run API + UI (local or Docker) | **[Quick start](docs/getting-started.md)** | `yarn dev:server`, `yarn dev:web`, `docker compose up`, `yarn dev:web:docker` |
+| Run / open tests | **[Testing](docs/testing.md)** | `yarn test`, `yarn test:integration`, `yarn test:e2e`, `yarn test:*:report` |
+| Run in GitHub Codespaces | **[Codespaces](docs/codespaces.md)** | `yarn dev:server`, `yarn dev:web` (after Create codespace) |
+
 ## CI/CD pipeline
 
 Full GitHub Actions pipeline — checks, artifacts, and Pages deploy.
@@ -59,16 +70,12 @@ Full GitHub Actions pipeline — checks, artifacts, and Pages deploy.
 
 Publish/Deploy run on **branch pushes** only (`github-pages` rejects `refs/pull/*/merge`). See **[CI/CD](docs/ci-cd.md)**.
 
-## Requirements
-
-- Node.js 24 or later
-- Yarn classic (`1.22.x`)
-
 ## Docs
 
 | Guide | Contents |
 | --- | --- |
-| [Quick start](docs/getting-started.md) | Install, env files, run with/without Docker, Codespaces |
+| [Quick start](docs/getting-started.md) | Install, env files, run with/without Docker |
+| [Codespaces](docs/codespaces.md) | Create your own Codespace; run API, UI, and tests |
 | [API](docs/api.md) | Contract, Zod → OpenAPI/Redoc, Postman |
 | [Testing](docs/testing.md) | Integration + e2e strategy, local and published reports |
 | [CI/CD](docs/ci-cd.md) | Workflows, Pages publish/deploy |

@@ -1,6 +1,6 @@
 # Quick start
 
-Install, configure, and run the API and UI — locally with SQLite, with Docker + SQL Server, or in a Codespace.
+Install, configure, and run the API and UI — locally with SQLite or with Docker + SQL Server. For GitHub Codespaces, see [Codespaces](codespaces.md).
 
 ## Prerequisites
 
@@ -90,17 +90,11 @@ Host ports: `1433` (SQL Server), `8080` (API), `3001` (UI).
 
 ## Codespaces
 
-**Code → Codespaces → Create codespace on main.** The dev container installs dependencies, copies env examples when missing, and sets `HOST=0.0.0.0`. It forwards UI `3000` and API `8000`.
-
-```bash
-yarn dev:server
-yarn dev:web
-```
-
-Open the forwarded UI. The page calls `https://<codespace>-8000.app.github.dev`. `CORS_ORIGINS` allows `localhost`, `127.0.0.1`, and `*.app.github.dev`. Prefer the SQLite example — this is a live session, not a deployment.
+Prefer not to install Node locally? See **[Codespaces](codespaces.md)** — create your own environment from the GitHub UI, then `yarn dev:server` / `yarn dev:web`.
 
 ## Next
 
+- [Codespaces](codespaces.md)
 - [API docs & contract](api.md)
 - [Testing](testing.md)
 - [CI/CD](ci-cd.md)
