@@ -6,9 +6,9 @@ on:
     branches: [main]
 
 concurrency:
-  # One run per branch: push + pull_request share a group so PR checks don't
-  # look "skipped" while a parallel push run does the Pages publish.
-  group: ci-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  # Keep push and pull_request separate so a PR run cannot cancel the push that
+  # deploys Pages (github-pages env rejects refs/pull/*/merge).
+  group: ci-${{ github.workflow }}-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 permissions:
@@ -129,7 +129,8 @@ jobs:
   publish-reports:
     name: Publish reports
     needs: [test, openapi]
-    if: ${{ always() && needs.test.result != 'cancelled' && needs.test.result != 'skipped' && needs.openapi.result != 'cancelled' }}
+    # Pages deploy is only allowed from branch/tag refs, not refs/pull/*/merge.
+    if: ${{ always() && github.event_name == 'push' && needs.test.result != 'cancelled' && needs.test.result != 'skipped' && needs.openapi.result != 'cancelled' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
 
@@ -299,7 +300,7 @@ jobs:
   deploy-reports:
     name: Deploy reports to GitHub Pages
     needs: [build, test, openapi, publish-reports]
-    if: ${{ always() && needs.publish-reports.result == 'success' }}
+    if: ${{ always() && github.event_name == 'push' && needs.publish-reports.result == 'success' }}
     runs-on: ubuntu-24.04
     environment:
       name: github-pages
