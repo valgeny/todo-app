@@ -27,7 +27,7 @@
   },
   "license": "UNLICENSED",
   "devDependencies": {
-    "@biomejs/biome": "^2.5.15",
+    "@biomejs/biome": "2.5.15",
     "@playwright/test": "^1.64.0"
   }
 }
