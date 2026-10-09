@@ -6,7 +6,9 @@ on:
     branches: [main]
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  # One run per branch: push + pull_request share a group so PR checks don't
+  # look "skipped" while a parallel push run does the Pages publish.
+  group: ci-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 permissions:
@@ -127,7 +129,7 @@ jobs:
   publish-reports:
     name: Publish reports
     needs: [test, openapi]
-    if: ${{ always() && github.event_name == 'push' && needs.test.result != 'cancelled' && needs.test.result != 'skipped' && needs.openapi.result != 'cancelled' }}
+    if: ${{ always() && needs.test.result != 'cancelled' && needs.test.result != 'skipped' && needs.openapi.result != 'cancelled' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
 
@@ -196,7 +198,8 @@ jobs:
         if: always()
         env:
           RUN_TIMESTAMP: ${{ github.run_started_at }}
-          BRANCH_NAME: ${{ github.ref_name }}
+          # head_ref is set on pull_request; ref_name on push (and is "N/merge" on PRs).
+          BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
         run: |
           TS=$(node -e 'const t=process.env.RUN_TIMESTAMP; console.log(Math.floor(new Date(t||Date.now()).getTime()/1000))')
           echo "ts=$TS" >> "$GITHUB_OUTPUT"
@@ -296,7 +299,7 @@ jobs:
   deploy-reports:
     name: Deploy reports to GitHub Pages
     needs: [build, test, openapi, publish-reports]
-    if: ${{ always() && github.event_name == 'push' && needs.publish-reports.result == 'success' }}
+    if: ${{ always() && needs.publish-reports.result == 'success' }}
     runs-on: ubuntu-24.04
     environment:
       name: github-pages
