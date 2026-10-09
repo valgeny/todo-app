@@ -8,6 +8,8 @@ import {
   todoIdSchema,
   toTodoResponse
 } from '@/models/todo';
+import { apiErrorSchema, todoResponseSchema } from '@/openapi/schemas';
+import type { DocumentedOperation } from '@/openapi/types';
 import {
   createTodo,
   getTodoById,
@@ -27,7 +29,27 @@ const todoIdParams = Joi.object()
   })
   .required();
 
-export const getTodoBulk = {
+const todosPath = '/api/v0/todos';
+const todoItemPath = '/api/v0/todos/{todoId}';
+
+export const getTodoBulk: DocumentedOperation & {
+  handler: (request: ValidatedRequest, response: Response) => Promise<void>;
+} = {
+  openapi: {
+    method: 'get',
+    path: todosPath,
+    operationId: 'listTodos',
+    summary: 'List todos',
+    description: 'Returns a paginated list of todos. Total count is in the `X-total-count` header.',
+    tags: ['todos'],
+    responses: {
+      '200': {
+        description: 'Todo list',
+        schema: todoResponseSchema,
+        isArray: true
+      }
+    }
+  },
   validation: {
     query: Joi.object().keys({
       status: Joi.string().valid('all', 'completed', 'incomplete', 'overdue').default('all'),
@@ -66,7 +88,21 @@ export const getTodoBulk = {
   }
 };
 
-export const getTodo = {
+export const getTodo: DocumentedOperation & {
+  handler: (request: ValidatedRequest, response: Response) => Promise<void>;
+} = {
+  openapi: {
+    method: 'get',
+    path: todoItemPath,
+    operationId: 'getTodo',
+    summary: 'Get a todo by id',
+    tags: ['todos'],
+    responses: {
+      '200': { description: 'Todo', schema: todoResponseSchema },
+      '400': { description: 'Validation error', schema: apiErrorSchema },
+      '404': { description: 'Todo not found', schema: apiErrorSchema }
+    }
+  },
   validation: {
     params: todoIdParams
   },
@@ -77,7 +113,20 @@ export const getTodo = {
   }
 };
 
-export const postTodo = {
+export const postTodo: DocumentedOperation & {
+  handler: (request: ValidatedRequest, response: Response) => Promise<void>;
+} = {
+  openapi: {
+    method: 'post',
+    path: todosPath,
+    operationId: 'createTodo',
+    summary: 'Create a todo',
+    tags: ['todos'],
+    responses: {
+      '201': { description: 'Created', schema: todoResponseSchema },
+      '400': { description: 'Validation error', schema: apiErrorSchema }
+    }
+  },
   validation: {
     body: Joi.object()
       .keys({
@@ -98,7 +147,22 @@ export const postTodo = {
   }
 };
 
-export const putTodo = {
+export const putTodo: DocumentedOperation & {
+  handler: (request: ValidatedRequest, response: Response) => Promise<void>;
+} = {
+  openapi: {
+    method: 'put',
+    path: todoItemPath,
+    operationId: 'updateTodo',
+    summary: 'Update todo fields',
+    description: 'Updates title, description, and/or due date. Completion is changed via PATCH.',
+    tags: ['todos'],
+    responses: {
+      '200': { description: 'Updated todo', schema: todoResponseSchema },
+      '400': { description: 'Validation error', schema: apiErrorSchema },
+      '404': { description: 'Todo not found', schema: apiErrorSchema }
+    }
+  },
   validation: {
     params: todoIdParams,
     body: Joi.object()
@@ -122,7 +186,21 @@ export const putTodo = {
   }
 };
 
-export const patchTodo = {
+export const patchTodo: DocumentedOperation & {
+  handler: (request: ValidatedRequest, response: Response) => Promise<void>;
+} = {
+  openapi: {
+    method: 'patch',
+    path: todoItemPath,
+    operationId: 'setTodoCompleted',
+    summary: 'Set todo completion',
+    tags: ['todos'],
+    responses: {
+      '200': { description: 'Updated todo', schema: todoResponseSchema },
+      '400': { description: 'Validation error', schema: apiErrorSchema },
+      '404': { description: 'Todo not found', schema: apiErrorSchema }
+    }
+  },
   validation: {
     params: todoIdParams,
     body: Joi.object()
@@ -139,7 +217,21 @@ export const patchTodo = {
   }
 };
 
-export const deleteTodo = {
+export const deleteTodo: DocumentedOperation & {
+  handler: (request: ValidatedRequest, response: Response) => Promise<void>;
+} = {
+  openapi: {
+    method: 'delete',
+    path: todoItemPath,
+    operationId: 'deleteTodo',
+    summary: 'Delete a todo',
+    tags: ['todos'],
+    responses: {
+      '204': { description: 'Deleted' },
+      '400': { description: 'Validation error', schema: apiErrorSchema },
+      '404': { description: 'Todo not found', schema: apiErrorSchema }
+    }
+  },
   validation: {
     params: todoIdParams
   },

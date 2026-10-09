@@ -42,6 +42,17 @@ jobs:
       - name: Lint
         run: yarn lint
 
+      - name: Build OpenAPI + Redoc
+        run: yarn openapi:build
+
+      - name: Upload Redoc artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: redoc-report
+          path: redoc-report/
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Build web
         run: yarn build
 
@@ -180,6 +191,23 @@ jobs:
         with:
           report: playwright
           source: playwright-report
+          slots: ${{ steps.slots.outputs.slots }}
+          base: ${{ steps.slots.outputs.base }}
+
+      - name: Download Redoc artifact
+        if: ${{ always() && steps.prepare.outcome == 'success' }}
+        uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          name: redoc-report
+          path: redoc-report
+
+      - name: Publish API docs
+        if: ${{ always() && steps.prepare.outcome == 'success' }}
+        uses: ./.github/actions/publish-pages-report
+        with:
+          report: redoc
+          source: redoc-report
           slots: ${{ steps.slots.outputs.slots }}
           base: ${{ steps.slots.outputs.base }}
 

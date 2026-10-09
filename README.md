@@ -108,10 +108,20 @@ GitHub Actions uploads Allure and Playwright HTML reports as downloadable artifa
 On every push, the same reports are also published to GitHub Pages. Paths are `/<report>/<slot>/` on `main`, or `/<branch>/<report>/<slot>/` on other branches (`slot` is `latest` or a unix timestamp; last 30 timestamps kept per report). Enable that once under **Settings → Pages → Source: GitHub Actions**.
 
 - Index: `https://valgeny.github.io/todo-app/`
-- Main latest: `/allure/latest/`, `/playwright/latest/`
-- Branch preview: `/<branch>/allure/latest/`, `/<branch>/playwright/latest/`
+- Main latest: `/allure/latest/`, `/playwright/latest/`, `/redoc/latest/`
+- Branch preview: `/<branch>/allure/latest/`, `/<branch>/playwright/latest/`, `/<branch>/redoc/latest/`
 
 Publishing is shared: `.github/actions/publish-pages-report` + `.github/scripts/pages-site.mjs` (`report`, `source`, `slots`, optional `base` for the branch folder).
+
+### API docs (OpenAPI / Redoc)
+
+Request schemas are generated from the Joi validators on each controller (`openapi` + `validation`). Build the static Redoc site and OpenAPI file with:
+
+```bash
+yarn openapi:build
+```
+
+That writes `postman/specs/openapi.json` and `redoc-report/index.html`.
 
 Pull requests also run the **Biome** workflow (`mongolyy/reviewdog-action-biome`), which posts inline review comments for lint findings on changed lines.
 

@@ -38,6 +38,7 @@ data/*.sqlite-*
 
 playwright-report/
 allure-report/
+redoc-report/
 allure-results/
 **/allure-results/
 test-results/

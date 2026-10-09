@@ -13,6 +13,7 @@
     "dev:web": "yarn workspace web dev",
     "dev:web:docker": "yarn workspace web dev:docker",
     "build": "yarn workspace web build",
+    "openapi:build": "yarn workspace server openapi:build",
     "lint": "biome check .",
     "format": "biome check --write .",
     "test": "yarn lint && yarn test:integration",
