@@ -40,6 +40,7 @@ CI also uploads Allure and Playwright HTML as downloadable Actions artifacts (14
 
 - Local SQLite or Docker SQL Server (`todo-db` + API image)
 - GitHub Codespaces / devcontainer
+- MCP server (`yarn mcp`) — curated tools over the REST API ([docs](docs/mcp.md))
 - Biome lint/format; Node 24; Yarn classic workspaces
 
 **Quality**
@@ -57,6 +58,7 @@ Requires Node.js 24+ and Yarn classic. Copy/paste commands live in the guides be
 | Install + env files | **[Quick start](docs/getting-started.md)** | `yarn install`, `cp …/.env.example …` |
 | Run API + UI (local or Docker) | **[Quick start](docs/getting-started.md)** | `yarn dev:server`, `yarn dev:web`, `docker compose up`, `yarn dev:web:docker` |
 | Run / open tests | **[Testing](docs/testing.md)** | `yarn test`, `yarn test:integration`, `yarn test:e2e`, `yarn test:*:report` |
+| Run MCP tools (API must be up) | **[MCP](docs/mcp.md)** | `yarn mcp`, `yarn mcp:inspect` |
 | Run in GitHub Codespaces | **[Codespaces](docs/codespaces.md)** | `yarn dev:server`, `yarn dev:web` (after Create codespace) |
 
 ## CI/CD pipeline
@@ -81,6 +83,7 @@ Publish/Deploy run on **branch pushes** only (`github-pages` rejects `refs/pull/
 | [Quick start](docs/getting-started.md) | Install, env files, run with/without Docker |
 | [Codespaces](docs/codespaces.md) | Create your own Codespace; run API, UI, and tests |
 | [API](docs/api.md) | Contract, Zod → OpenAPI/Redoc, Postman |
+| [MCP](docs/mcp.md) | Curated MCP tools over the REST API; Inspector |
 | [Testing](docs/testing.md) | Integration + e2e strategy, local and published reports |
 | [Screenshots](docs/screenshots.md) | UI captures from Playwright e2e |
 | [CI/CD](docs/ci-cd.md) | Workflows, Pages publish/deploy |
