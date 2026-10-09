@@ -35,6 +35,9 @@ dist/
 data/*.sqlite
 data/*.sqlite-*
 
+# Local verification copy (see sandbox verification runs)
+sandbox/
+
 # Generated reports and test outputs (canonical)
 test-results/
 redoc-report/
