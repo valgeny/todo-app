@@ -1,6 +1,18 @@
 import { randomUUID } from 'node:crypto';
 import type { NextFunction, Request, Response } from 'express';
 import status from 'http-status';
+import { ZodError, z } from 'zod';
+
+/** Wire shape of `BaseError.toJson`. */
+export const apiErrorSchema = z.object({
+  errorId: z.string(),
+  errorText: z.string(),
+  loggingId: z.string().nullable(),
+  originalError: z.object({}).passthrough().nullable().optional(),
+  data: z.unknown().optional()
+});
+
+export type ApiError = z.infer<typeof apiErrorSchema>;
 
 export class BaseError extends Error {
   errorId: string;
@@ -95,6 +107,8 @@ export const globalErrorHandler = (
 ): void => {
   if (err instanceof BaseError) {
     next(err);
+  } else if (err instanceof ZodError) {
+    next(new ValidationError('Bad formatting', err, err.issues));
   } else if (err.name === 'ValidationError') {
     next(new ValidationError('Bad formatting', err, 'details' in err ? err.details : null));
   } else if (err.name === 'SyntaxError') {

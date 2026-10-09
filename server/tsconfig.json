@@ -25,9 +25,9 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
-      "@test/*": ["test/*"]
+      "@test/*": ["../tests/integration/*"]
     }
   },
   "exclude": ["node_modules", "dist"],
-  "include": ["./src", "./test"]
+  "include": ["./src", "../tests/integration"]
 }

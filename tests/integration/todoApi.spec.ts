@@ -174,6 +174,6 @@ describe('todo API', () => {
   it('returns 404 for unknown routes and ids', negative, async t => {
     const api = createApi(app, t);
     await api.get(endpoint('/api/v0/nope')).expect(404);
-    await api.get(endpoint('/api/v0/todos/11111111-1111-1111-1111-111111111111')).expect(404);
+    await api.get(endpoint('/api/v0/todos/11111111-1111-4111-8111-111111111111')).expect(404);
   });
 });

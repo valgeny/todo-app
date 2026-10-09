@@ -13,13 +13,14 @@
     "dev:web": "yarn workspace web dev",
     "dev:web:docker": "yarn workspace web dev:docker",
     "build": "yarn workspace web build",
+    "openapi:build": "yarn workspace server openapi:build",
     "lint": "biome check .",
     "format": "biome check --write .",
     "test": "yarn lint && yarn test:integration",
     "test:integration": "yarn workspace server test",
-    "test:integration:report": "allure open allure-report",
+    "test:integration:report": "allure open test-results/allure",
     "test:e2e": "playwright test",
-    "test:e2e:report": "playwright show-report"
+    "test:e2e:report": "playwright show-report test-results/playwright"
   },
   "packageManager": "yarn@1.22.22",
   "engines": {

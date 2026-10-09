@@ -1,16 +1,17 @@
-import Joi from 'joi';
+import { z } from 'zod';
 
 export const PAGINATION_DEFAULT = { limit: 20, offset: 0 };
 export const PAGINATION_BOUNDARIES = { limitMin: 1, limitMax: 500 };
 
 export const pagination = {
   schema: {
-    limit: Joi.number()
-      .integer()
+    limit: z.coerce
+      .number()
+      .int()
       .min(PAGINATION_BOUNDARIES.limitMin)
       .max(PAGINATION_BOUNDARIES.limitMax)
       .default(PAGINATION_DEFAULT.limit),
-    offset: Joi.number().integer().min(0).default(PAGINATION_DEFAULT.offset)
+    offset: z.coerce.number().int().min(0).default(PAGINATION_DEFAULT.offset)
   },
   formatLinkHeader: (count: number, limit: number, offset: number): Record<string, string> => {
     return {
@@ -33,16 +34,12 @@ export const pagination = {
 };
 
 export const sort = {
-  validate: (
-    strFields: [string, ...string[]],
-    defaultField: string = strFields[0],
+  fields: <const T extends string>(
+    strFields: [T, ...T[]],
+    defaultField: T = strFields[0],
     defaultOrder: 'ASC' | 'DESC' = 'DESC'
-  ): Record<string, unknown> => {
-    return {
-      sortField: Joi.string()
-        .valid(...strFields)
-        .default(defaultField),
-      sortOrder: Joi.string().valid('ASC', 'DESC').default(defaultOrder)
-    };
-  }
+  ) => ({
+    sortField: z.enum(strFields).default(defaultField),
+    sortOrder: z.enum(['ASC', 'DESC']).default(defaultOrder)
+  })
 };

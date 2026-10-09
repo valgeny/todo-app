@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
-import type { ObjectSchema } from 'joi';
+import type { z } from 'zod';
 
 declare module 'express-serve-static-core' {
   interface Request {
@@ -12,14 +12,12 @@ declare module 'express-serve-static-core' {
 }
 
 export type ValidationSchemas = {
-  body?: ObjectSchema;
-  query?: ObjectSchema;
-  params?: ObjectSchema;
+  body?: z.ZodType;
+  query?: z.ZodType;
+  params?: z.ZodType;
 };
 
 export type ValidatedRequest = Request;
-
-const joiOptions = { abortEarly: false, convert: true, stripUnknown: false };
 
 export const validate = (schemas: ValidationSchemas) => {
   return (req: Request, _res: Response, next: NextFunction): void => {
@@ -29,31 +27,19 @@ export const validate = (schemas: ValidationSchemas) => {
       params: req.params as Record<string, unknown>
     };
 
-    if (schemas.params) {
-      const { error, value } = schemas.params.validate(req.params, joiOptions);
-      if (error) {
-        next(error);
-        return;
+    try {
+      if (schemas.params) {
+        validated.params = schemas.params.parse(req.params) as Record<string, unknown>;
       }
-      validated.params = value;
-    }
-
-    if (schemas.query) {
-      const { error, value } = schemas.query.validate(req.query, joiOptions);
-      if (error) {
-        next(error);
-        return;
+      if (schemas.query) {
+        validated.query = schemas.query.parse(req.query) as Record<string, unknown>;
       }
-      validated.query = value;
-    }
-
-    if (schemas.body) {
-      const { error, value } = schemas.body.validate(req.body, joiOptions);
-      if (error) {
-        next(error);
-        return;
+      if (schemas.body) {
+        validated.body = schemas.body.parse(req.body ?? {}) as Record<string, unknown>;
       }
-      validated.body = value;
+    } catch (error) {
+      next(error);
+      return;
     }
 
     req.validated = validated;

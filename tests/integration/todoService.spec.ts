@@ -94,7 +94,7 @@ describe('todoService', () => {
   });
 
   it('throws NotFoundError for unknown ids', negative, async () => {
-    const missingId = '11111111-1111-1111-1111-111111111111';
+    const missingId = '11111111-1111-4111-8111-111111111111';
     await assert.rejects(() => getTodoById(missingId), NotFoundError);
     await assert.rejects(() => updateTodo(missingId, { title: 'Nope' }), NotFoundError);
     await assert.rejects(() => setTodoCompleted(missingId, true), NotFoundError);

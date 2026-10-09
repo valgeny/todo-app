@@ -1,0 +1,12 @@
+---
+description: Never commit or push unless the user explicitly asks; staging is OK
+alwaysApply: true
+---
+
+# Git: stage only unless asked
+
+- **Do not** create commits (`git commit`) unless the user explicitly asks to commit.
+- **Do not** push to a remote (`git push`) unless the user explicitly asks to push.
+- **Do** stage relevant changes with `git add` when finishing work, so the user can review and commit.
+- Phrases like "merge", "open a PR", or "ship it" are **not** permission to commit/push on their own — only clear requests such as "commit", "push", or "commit and push".
+- If commit or push is required to complete a requested action (e.g. "open a PR" and there is nothing on the remote yet), **ask first** instead of committing or pushing.

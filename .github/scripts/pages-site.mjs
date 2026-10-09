@@ -25,7 +25,7 @@ import {
 } from "node:fs";
 import { join, resolve } from "node:path";
 
-const RESERVED_TOP = new Set(["index.html", "allure", "playwright", "latest"]);
+const RESERVED_TOP = new Set(["index.html", "allure", "playwright", "redoc", "latest"]);
 
 function usage(exitCode = 1) {
   console.error(`Usage:
@@ -234,6 +234,7 @@ function formatSlot(slot) {
 const LABELS = {
   allure: "Integration (Allure)",
   playwright: "End-to-end (Playwright)",
+  redoc: "API (Redoc)",
 };
 
 function writeTreeIndex(treeRoot, {

@@ -1,6 +1,6 @@
 # To-Do List
 
-REST API and a small React page for managing to-do items. The API follows the webconf Node/TypeScript service: Express routers, Joi-validated controllers, TypeORM models, and shared error middleware. The UI lives in `web/` and is a Vite + React + Material UI single page.
+REST API and a small React page for managing to-do items. The API follows the webconf Node/TypeScript service: Express routers, Zod-validated controllers, TypeORM models, and shared error middleware. The UI lives in `web/` and is a Vite + React + Material UI single page.
 
 ## Requirements
 
@@ -92,14 +92,14 @@ Open the forwarded UI port. The page calls `https://<codespace>-8000.app.github.
 yarn test
 ```
 
-That runs Biome, then the integration tests with coverage (`c8`). Integration tests call the API and the todo service in-process. They load `server/config/.env.test`, which uses an in-memory SQLite database. End-to-end tests drive the UI in Chromium.
+That runs Biome, then the integration tests with coverage (`c8`). Specs live under `tests/integration/` and `tests/e2e/`. Integration tests call the API and the todo service in-process (SQLite via `server/config/.env.test`). End-to-end tests drive the UI in Chromium. All generated outputs go under `test-results/` (`allure/`, `playwright/`, `coverage/`, …).
 
 ```bash
 yarn test:integration
 yarn test:e2e
 ```
 
-`yarn test:integration:report` opens the Allure HTML report for integration tests. Each HTTP call to the app under test is attached as a request/response step. `yarn test:e2e:report` opens the Playwright HTML report.
+`yarn test:integration:report` opens the Allure HTML report. Each HTTP call to the app under test is attached as a request/response step. `yarn test:e2e:report` opens the Playwright HTML report.
 
 ### CI reports
 
@@ -108,10 +108,20 @@ GitHub Actions uploads Allure and Playwright HTML reports as downloadable artifa
 On every push, the same reports are also published to GitHub Pages. Paths are `/<report>/<slot>/` on `main`, or `/<branch>/<report>/<slot>/` on other branches (`slot` is `latest` or a unix timestamp; last 30 timestamps kept per report). Enable that once under **Settings → Pages → Source: GitHub Actions**.
 
 - Index: `https://valgeny.github.io/todo-app/`
-- Main latest: `/allure/latest/`, `/playwright/latest/`
-- Branch preview: `/<branch>/allure/latest/`, `/<branch>/playwright/latest/`
+- Main latest: `/allure/latest/`, `/playwright/latest/`, `/redoc/latest/`
+- Branch preview: `/<branch>/allure/latest/`, `/<branch>/playwright/latest/`, `/<branch>/redoc/latest/`
 
 Publishing is shared: `.github/actions/publish-pages-report` + `.github/scripts/pages-site.mjs` (`report`, `source`, `slots`, optional `base` for the branch folder).
+
+### API docs (OpenAPI / Redoc)
+
+Request and response schemas are generated from Zod validators (`openapi` + `validation`, with types via `z.infer`). Build the static Redoc site and OpenAPI file with:
+
+```bash
+yarn openapi:build
+```
+
+That writes `postman/specs/openapi.json` and `redoc-report/index.html`.
 
 Pull requests also run the **Biome** workflow (`mongolyy/reviewdog-action-biome`), which posts inline review comments for lint findings on changed lines.
 
@@ -171,7 +181,7 @@ The collection includes status-code tests. Use **Run collection** to walk throug
 ## Design
 
 - **Layers:** `main` → `createApp` → routers → controllers (`validation` + `handler`) → `todoService` → TypeORM `Todo` entity.
-- **Validation:** Joi schemas live with the model; a small `validate` middleware binds them to each controller (same pattern as webconf’s `express-validation`, which is no longer maintained).
+- **Validation:** Zod schemas live with the model and controllers; types are inferred with `z.infer`. A small `validate` middleware binds them to each route (same pattern as webconf’s `express-validation`, which is no longer maintained).
 - **Persistence:** TypeORM 1.x `DataSource`. `DB_DIALECT=mssql` uses SQL Server. `DB_DIALECT=sqlite` uses `better-sqlite3`. Active Record (`Todo.create` / `find` / `save`) matches webconf. `synchronize: true` creates the `todo` table.
 - **Errors:** Shared `BaseError` types mapped to HTTP status codes (400 validation, 404 missing entity/route, 500 unexpected).
 - **Testing:** Service tests cover CRUD, filters, and not-found behavior. HTTP tests use Supertest against `createApp`. The database comes from `server/config/.env.test`.
