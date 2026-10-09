@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "description": "To-do list API and web UI",
+  "author": "Valerian Geny",
   "workspaces": [
     "server",
     "web"

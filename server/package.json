@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "description": "To-do list REST API",
+  "author": "Valerian Geny",
   "main": "dist/main.js",
   "scripts": {
     "start": "ts-node -r tsconfig-paths/register --transpile-only src/main.ts",
