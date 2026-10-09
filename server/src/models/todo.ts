@@ -1,5 +1,5 @@
-import Joi from 'joi';
 import { BaseEntity, Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from 'typeorm';
+import { z } from 'zod';
 
 @Entity('todo')
 export class Todo extends BaseEntity {
@@ -22,29 +22,27 @@ export class Todo extends BaseEntity {
   createdAt!: Date;
 }
 
-export type TodoResponse = {
-  todoId: string;
-  title: string;
-  description: string | null;
-  dueDate: string | null;
-  isCompleted: boolean;
-  createdAt: string;
-};
+export const todoIdSchema = z.uuid();
+export const titleSchema = z.string().trim().min(1).max(200);
+export const descriptionSchema = z.string().trim().max(4000).nullable();
+export const dueDateSchema = z.iso.date().refine(value => {
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}, 'valid calendar date');
 
-const dueDatePattern = /^\d{4}-\d{2}-\d{2}$/;
+/** Wire shape of `toTodoResponse`. */
+export const todoResponseSchema = z
+  .object({
+    todoId: todoIdSchema,
+    title: titleSchema,
+    description: descriptionSchema,
+    dueDate: dueDateSchema.nullable(),
+    isCompleted: z.boolean(),
+    createdAt: z.iso.datetime()
+  })
+  .strict();
 
-export const todoIdSchema = Joi.string().uuid({ separator: '-' });
-export const titleSchema = Joi.string().trim().min(1).max(200);
-export const descriptionSchema = Joi.string().trim().max(4000).allow(null, '');
-export const dueDateSchema = Joi.string()
-  .pattern(dueDatePattern)
-  .custom((value: string, helpers) => {
-    const parsed = new Date(`${value}T00:00:00.000Z`);
-    if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value) {
-      return helpers.error('any.invalid');
-    }
-    return value;
-  }, 'valid calendar date');
+export type TodoResponse = z.infer<typeof todoResponseSchema>;
 
 export const formatDueDate = (value: string | Date | null): string | null => {
   if (!value) {
@@ -57,7 +55,7 @@ export const formatDueDate = (value: string | Date | null): string | null => {
 };
 
 export const toTodoResponse = (todo: Todo): TodoResponse => {
-  return {
+  return todoResponseSchema.parse({
     todoId: todo.todoId,
     title: todo.title,
     description: todo.description ?? null,
@@ -65,5 +63,5 @@ export const toTodoResponse = (todo: Todo): TodoResponse => {
     isCompleted: Boolean(todo.isCompleted),
     createdAt:
       todo.createdAt instanceof Date ? todo.createdAt.toISOString() : String(todo.createdAt)
-  };
+  });
 };

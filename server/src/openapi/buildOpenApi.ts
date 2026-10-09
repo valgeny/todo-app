@@ -1,6 +1,5 @@
-import type { Schema } from 'joi';
-import parse from 'joi-to-json';
 import type { OpenAPIV3 } from 'openapi-types';
+import { z } from 'zod';
 import {
   deleteTodo,
   getTodo,
@@ -9,7 +8,8 @@ import {
   postTodo,
   putTodo
 } from '@/controllers/todoCtrl';
-import { apiErrorSchema, todoResponseSchema } from '@/openapi/schemas';
+import { apiErrorSchema } from '@/errors';
+import { todoResponseSchema } from '@/models/todo';
 import type { DocumentedOperation } from '@/openapi/types';
 
 const operations: DocumentedOperation[] = [
@@ -21,12 +21,12 @@ const operations: DocumentedOperation[] = [
   deleteTodo
 ];
 
-function toOpenApiSchema(schema: Schema): OpenAPIV3.SchemaObject {
-  return parse(schema, 'open-api') as OpenAPIV3.SchemaObject;
+function toOpenApiSchema(schema: z.ZodType): OpenAPIV3.SchemaObject {
+  return z.toJSONSchema(schema, { target: 'openapi-3.0' }) as OpenAPIV3.SchemaObject;
 }
 
 function objectSchemaToParameters(
-  schema: Schema,
+  schema: z.ZodType,
   location: 'query' | 'path'
 ): OpenAPIV3.ParameterObject[] {
   const json = toOpenApiSchema(schema);
@@ -42,7 +42,7 @@ function objectSchemaToParameters(
 }
 
 function mediaSchema(
-  responseSchema: Schema | undefined,
+  responseSchema: z.ZodType | undefined,
   isArray?: boolean
 ): OpenAPIV3.MediaTypeObject | undefined {
   if (!responseSchema) return undefined;
@@ -139,7 +139,7 @@ export function buildOpenApiDocument(): OpenAPIV3.Document {
       title: 'Todo App API',
       version: '1.0.0',
       description:
-        'REST API for managing to-do items. Request schemas are generated from the Joi validators colocated with each controller.'
+        'REST API for managing to-do items. Request and response schemas are generated from Zod validators colocated with the domain and controllers.'
     },
     servers: [
       {

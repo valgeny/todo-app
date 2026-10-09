@@ -1,12 +1,12 @@
-import type { Schema } from 'joi';
+import type { z } from 'zod';
 import type { ValidationSchemas } from '@/utils/validate';
 
 export type HttpMethod = 'get' | 'post' | 'put' | 'patch' | 'delete';
 
 export type OpenApiResponseMeta = {
   description: string;
-  /** Optional Joi schema for the JSON response body. */
-  schema?: Schema;
+  /** Optional Zod schema for the JSON response body. */
+  schema?: z.ZodType;
   /** When true, document as an array of `schema`. */
   isArray?: boolean;
 };

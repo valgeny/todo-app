@@ -1,6 +1,6 @@
 # To-Do List
 
-REST API and a small React page for managing to-do items. The API follows the webconf Node/TypeScript service: Express routers, Joi-validated controllers, TypeORM models, and shared error middleware. The UI lives in `web/` and is a Vite + React + Material UI single page.
+REST API and a small React page for managing to-do items. The API follows the webconf Node/TypeScript service: Express routers, Zod-validated controllers, TypeORM models, and shared error middleware. The UI lives in `web/` and is a Vite + React + Material UI single page.
 
 ## Requirements
 
@@ -115,7 +115,7 @@ Publishing is shared: `.github/actions/publish-pages-report` + `.github/scripts/
 
 ### API docs (OpenAPI / Redoc)
 
-Request schemas are generated from the Joi validators on each controller (`openapi` + `validation`). Build the static Redoc site and OpenAPI file with:
+Request and response schemas are generated from Zod validators (`openapi` + `validation`, with types via `z.infer`). Build the static Redoc site and OpenAPI file with:
 
 ```bash
 yarn openapi:build
@@ -181,7 +181,7 @@ The collection includes status-code tests. Use **Run collection** to walk throug
 ## Design
 
 - **Layers:** `main` → `createApp` → routers → controllers (`validation` + `handler`) → `todoService` → TypeORM `Todo` entity.
-- **Validation:** Joi schemas live with the model; a small `validate` middleware binds them to each controller (same pattern as webconf’s `express-validation`, which is no longer maintained).
+- **Validation:** Zod schemas live with the model and controllers; types are inferred with `z.infer`. A small `validate` middleware binds them to each route (same pattern as webconf’s `express-validation`, which is no longer maintained).
 - **Persistence:** TypeORM 1.x `DataSource`. `DB_DIALECT=mssql` uses SQL Server. `DB_DIALECT=sqlite` uses `better-sqlite3`. Active Record (`Todo.create` / `find` / `save`) matches webconf. `synchronize: true` creates the `todo` table.
 - **Errors:** Shared `BaseError` types mapped to HTTP status codes (400 validation, 404 missing entity/route, 500 unexpected).
 - **Testing:** Service tests cover CRUD, filters, and not-found behavior. HTTP tests use Supertest against `createApp`. The database comes from `server/config/.env.test`.

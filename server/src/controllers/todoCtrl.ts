@@ -1,14 +1,15 @@
 import type { Response } from 'express';
 import status from 'http-status';
-import Joi from 'joi';
+import { z } from 'zod';
+import { apiErrorSchema } from '@/errors';
 import {
   descriptionSchema,
   dueDateSchema,
   titleSchema,
   todoIdSchema,
+  todoResponseSchema,
   toTodoResponse
 } from '@/models/todo';
-import { apiErrorSchema, todoResponseSchema } from '@/openapi/schemas';
 import type { DocumentedOperation } from '@/openapi/types';
 import {
   createTodo,
@@ -23,11 +24,43 @@ import {
 import { pagination, sort } from '@/utils/restUtils';
 import type { ValidatedRequest } from '@/utils/validate';
 
-const todoIdParams = Joi.object()
-  .keys({
-    todoId: todoIdSchema.required()
+const todoIdParams = z.object({
+  todoId: todoIdSchema
+});
+
+const createTodoBody = z
+  .object({
+    title: titleSchema,
+    description: descriptionSchema.optional(),
+    dueDate: dueDateSchema.optional()
   })
-  .required();
+  .strict();
+
+const updateTodoBody = z
+  .object({
+    title: titleSchema.optional(),
+    description: descriptionSchema.optional(),
+    dueDate: dueDateSchema.nullable().optional()
+  })
+  .strict()
+  .refine(
+    value =>
+      value.title !== undefined || value.description !== undefined || value.dueDate !== undefined,
+    { message: 'At least one of title, description, or dueDate is required' }
+  );
+
+const patchTodoBody = z
+  .object({
+    isCompleted: z.boolean()
+  })
+  .strict();
+
+const listTodosQuery = z.object({
+  status: z.enum(['all', 'completed', 'incomplete', 'overdue']).default('all'),
+  ...sort.fields(['dueDate', 'createdAt', 'title'], 'createdAt', 'DESC'),
+  limit: pagination.schema.limit,
+  offset: pagination.schema.offset
+});
 
 const todosPath = '/api/v0/todos';
 const todoItemPath = '/api/v0/todos/{todoId}';
@@ -51,12 +84,7 @@ export const getTodoBulk: DocumentedOperation & {
     }
   },
   validation: {
-    query: Joi.object().keys({
-      status: Joi.string().valid('all', 'completed', 'incomplete', 'overdue').default('all'),
-      ...sort.validate(['dueDate', 'createdAt', 'title'], 'createdAt', 'DESC'),
-      limit: pagination.schema.limit,
-      offset: pagination.schema.offset
-    })
+    query: listTodosQuery
   },
   handler: async (request: ValidatedRequest, response: Response): Promise<void> => {
     const {
@@ -65,17 +93,11 @@ export const getTodoBulk: DocumentedOperation & {
       sortOrder,
       limit,
       offset
-    } = request.validated.query as {
-      status: ListStatus;
-      sortField: SortField;
-      sortOrder: 'ASC' | 'DESC';
-      limit: number;
-      offset: number;
-    };
+    } = request.validated.query as z.infer<typeof listTodosQuery>;
 
     const { items, count } = await listTodos({
-      status: listStatus,
-      sortField,
+      status: listStatus as ListStatus,
+      sortField: sortField as SortField,
       sortOrder,
       limit,
       offset
@@ -107,7 +129,7 @@ export const getTodo: DocumentedOperation & {
     params: todoIdParams
   },
   handler: async (request: ValidatedRequest, response: Response): Promise<void> => {
-    const { todoId } = request.validated.params as { todoId: string };
+    const { todoId } = request.validated.params as z.infer<typeof todoIdParams>;
     const todo = await getTodoById(todoId);
     response.status(status.OK).send(toTodoResponse(todo));
   }
@@ -128,20 +150,10 @@ export const postTodo: DocumentedOperation & {
     }
   },
   validation: {
-    body: Joi.object()
-      .keys({
-        title: titleSchema.required(),
-        description: descriptionSchema.optional(),
-        dueDate: dueDateSchema.optional()
-      })
-      .unknown(false)
+    body: createTodoBody
   },
   handler: async (request: ValidatedRequest, response: Response): Promise<void> => {
-    const body = request.validated.body as {
-      title: string;
-      description?: string | null;
-      dueDate?: string;
-    };
+    const body = request.validated.body as z.infer<typeof createTodoBody>;
     const todo = await createTodo(body);
     response.status(status.CREATED).send(toTodoResponse(todo));
   }
@@ -165,22 +177,11 @@ export const putTodo: DocumentedOperation & {
   },
   validation: {
     params: todoIdParams,
-    body: Joi.object()
-      .keys({
-        title: titleSchema.optional(),
-        description: descriptionSchema.optional(),
-        dueDate: dueDateSchema.allow(null).optional()
-      })
-      .or('title', 'description', 'dueDate')
-      .unknown(false)
+    body: updateTodoBody
   },
   handler: async (request: ValidatedRequest, response: Response): Promise<void> => {
-    const { todoId } = request.validated.params as { todoId: string };
-    const body = request.validated.body as {
-      title?: string;
-      description?: string | null;
-      dueDate?: string | null;
-    };
+    const { todoId } = request.validated.params as z.infer<typeof todoIdParams>;
+    const body = request.validated.body as z.infer<typeof updateTodoBody>;
     const todo = await updateTodo(todoId, body);
     response.status(status.OK).send(toTodoResponse(todo));
   }
@@ -203,15 +204,11 @@ export const patchTodo: DocumentedOperation & {
   },
   validation: {
     params: todoIdParams,
-    body: Joi.object()
-      .keys({
-        isCompleted: Joi.boolean().required()
-      })
-      .unknown(false)
+    body: patchTodoBody
   },
   handler: async (request: ValidatedRequest, response: Response): Promise<void> => {
-    const { todoId } = request.validated.params as { todoId: string };
-    const { isCompleted } = request.validated.body as { isCompleted: boolean };
+    const { todoId } = request.validated.params as z.infer<typeof todoIdParams>;
+    const { isCompleted } = request.validated.body as z.infer<typeof patchTodoBody>;
     const todo = await setTodoCompleted(todoId, isCompleted);
     response.status(status.OK).send(toTodoResponse(todo));
   }
@@ -236,7 +233,7 @@ export const deleteTodo: DocumentedOperation & {
     params: todoIdParams
   },
   handler: async (request: ValidatedRequest, response: Response): Promise<void> => {
-    const { todoId } = request.validated.params as { todoId: string };
+    const { todoId } = request.validated.params as z.infer<typeof todoIdParams>;
     await removeTodo(todoId);
     response.status(status.NO_CONTENT).end();
   }
