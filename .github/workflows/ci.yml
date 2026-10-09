@@ -99,7 +99,7 @@ jobs:
       # Phase 2: GitHub Pages — main at /<report>/<slot>/, other branches at /<branch>/...
       - name: Restore previous report site
         if: ${{ always() && github.event_name == 'push' }}
-        uses: dawidd6/action-download-artifact@v6
+        uses: dawidd6/action-download-artifact@v27
         continue-on-error: true
         with:
           name: pages-site
@@ -111,7 +111,7 @@ jobs:
       # Keep main reports when a feature branch publishes (latest pages-site may be branch-only).
       - name: Restore main Pages baseline
         if: ${{ always() && github.event_name == 'push' && github.ref_name != 'main' }}
-        uses: dawidd6/action-download-artifact@v6
+        uses: dawidd6/action-download-artifact@v27
         continue-on-error: true
         with:
           name: github-pages
