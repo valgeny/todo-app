@@ -18,15 +18,15 @@ permissions:
 jobs:
   build:
     name: Build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: yarn
@@ -47,15 +47,15 @@ jobs:
 
   test:
     name: Test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: yarn
@@ -80,7 +80,7 @@ jobs:
       # Phase 1: downloadable Actions artifacts (PRs and every push)
       - name: Upload Allure report artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: allure-report
           path: allure-report/
@@ -89,7 +89,7 @@ jobs:
 
       - name: Upload Playwright report artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: playwright-report
           path: playwright-report/
@@ -203,13 +203,13 @@ jobs:
 
       - name: Upload GitHub Pages artifact
         if: ${{ always() && steps.assemble.outcome == 'success' }}
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: report-site
 
       - name: Upload pages site history artifact
         if: ${{ always() && steps.assemble.outcome == 'success' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: pages-site
           path: report-site/
@@ -219,11 +219,11 @@ jobs:
     name: Deploy reports to GitHub Pages
     needs: [build, test]
     if: ${{ always() && github.event_name == 'push' && needs.test.result != 'cancelled' && needs.test.result != 'skipped' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
