@@ -9,6 +9,7 @@
     "includes": [
       "server/**",
       "web/**",
+      "mcp/**",
       "tests/**",
       "playwright.config.ts",
       "package.json",

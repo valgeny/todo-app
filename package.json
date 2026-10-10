@@ -6,7 +6,8 @@
   "author": "Valerian Geny",
   "workspaces": [
     "server",
-    "web"
+    "web",
+    "mcp"
   ],
   "scripts": {
     "start": "yarn workspace server start",
@@ -15,13 +16,16 @@
     "dev:web:docker": "yarn workspace web dev:docker",
     "build": "yarn workspace web build",
     "openapi:build": "yarn workspace server openapi:build",
+    "mcp": "node --import tsx mcp/src/index.ts",
+    "mcp:inspect": "yarn workspace mcp inspect",
     "lint": "biome check .",
     "format": "biome check --write .",
-    "test": "yarn lint && yarn test:integration",
+    "test": "yarn lint && yarn test:integration && yarn test:mcp",
     "test:integration": "yarn workspace server test",
     "test:integration:report": "allure open test-results/allure",
     "test:e2e": "playwright test",
-    "test:e2e:report": "playwright show-report test-results/playwright"
+    "test:e2e:report": "playwright show-report test-results/playwright",
+    "test:mcp": "yarn workspace mcp test"
   },
   "packageManager": "yarn@1.22.22",
   "engines": {

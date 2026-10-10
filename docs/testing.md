@@ -57,3 +57,5 @@ yarn format
 Details of publish/deploy: [CI/CD](ci-cd.md).
 
 Committed UI captures from these runs: [Screenshots](screenshots.md).
+
+MCP unit tests: `yarn test:mcp` (mocked HTTP). Manual protocol checks: [MCP](mcp.md) (`yarn mcp:inspect`).
