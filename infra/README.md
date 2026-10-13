@@ -11,8 +11,8 @@ Local Terraform state (`backend "local"`). **SQLite on Cloud Run is ephemeral**:
 | `secrets` | `modules/secrets` | Secret Manager secrets + versions |
 | **`apis`** | `modules/apis` | Cloud Run backend + runtime SA |
 | **`frontends`** | `modules/frontends` | Public GCS website bucket + deploy writers IAM (optional) |
-| **`mcp`** | `modules/mcp` | Cloud Run Streamable HTTP MCP + runtime SA (optional; calls `apis` URI) |
-| `github_deploy` | `modules/github_deploy` | CI deploy SA + AR/Run/act-as IAM (FE write via `frontends.deploy_members`) |
+| **`mcp`** | `modules/mcp` | Cloud Run Streamable HTTP MCP + runtime SA (calls `apis` URI) |
+| `github_deploy` | `modules/github_deploy` | CI deploy SA + WIF + AR writer + Run admin (runtime act-as / FE write via each module’s `deploy_members`) |
 
 Do **not** reuse `modules/apis` for MCP: different image, no SQLite/secrets, and `TODO_API_ORIGIN` instead of DB/CORS env.
 

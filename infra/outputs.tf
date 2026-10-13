@@ -58,12 +58,12 @@ output "workload_identity_provider" {
 }
 
 output "mcp_uri" {
-  value       = try(module.mcp[0].uri, null)
-  description = "Cloud Run MCP service URL (null if create_mcp is false)."
+  value       = module.mcp.uri
+  description = "Cloud Run MCP service URL."
 }
 
 output "mcp_endpoint" {
-  value       = try(module.mcp[0].mcp_endpoint, null)
+  value       = module.mcp.mcp_endpoint
   description = "Streamable HTTP MCP endpoint (…/mcp)."
 }
 

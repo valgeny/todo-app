@@ -43,6 +43,12 @@ variable "artifact_registry_name" {
   description = "Artifact Registry repository name (shared with API images)."
 }
 
+variable "deploy_members" {
+  type        = list(string)
+  description = "Principals allowed to act as the MCP runtime SA (e.g. CI deploy SA)."
+  default     = []
+}
+
 variable "app_env" {
   type        = string
   description = "APP_ENV value."

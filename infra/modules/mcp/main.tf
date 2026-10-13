@@ -18,6 +18,15 @@ resource "google_artifact_registry_repository_iam_member" "mcp_reader" {
   member     = "serviceAccount:${google_service_account.mcp.email}"
 }
 
+# CI / deploy identities that may gcloud run deploy this service (act-as runtime SA).
+resource "google_service_account_iam_member" "deploy_acts_as" {
+  for_each = toset(var.deploy_members)
+
+  service_account_id = google_service_account.mcp.name
+  role               = "roles/iam.serviceAccountUser"
+  member             = each.value
+}
+
 locals {
   plain_env = {
     APP_ENV         = var.app_env

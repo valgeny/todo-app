@@ -49,6 +49,12 @@ variable "secret_resources" {
   description = "Secrets to mount as Cloud Run env (and grant secretAccessor)."
 }
 
+variable "deploy_members" {
+  type        = list(string)
+  description = "Principals allowed to act as the API runtime SA (e.g. CI deploy SA)."
+  default     = []
+}
+
 # --- Non-secret app env (platform-injected; no .env file on Cloud Run) ---
 
 variable "app_env" {

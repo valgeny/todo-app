@@ -99,6 +99,20 @@ moved {
   from = google_service_account_iam_member.github_deploy_acts_as_api
   to   = module.github_deploy.google_service_account_iam_member.github_deploy_acts_as_api
 }
+# API act-as: github_deploy → apis (runtime module owns act-as, same as MCP/FE)
+moved {
+  from = module.github_deploy.google_service_account_iam_member.github_deploy_acts_as_api
+  to   = module.apis.google_service_account_iam_member.deploy_acts_as["serviceAccount:gh-deploy-sandbox@project-8011a04e-e026-4189-b28.iam.gserviceaccount.com"]
+}
+# MCP: drop count index; act-as github_deploy → mcp.deploy_members
+moved {
+  from = module.mcp[0]
+  to   = module.mcp
+}
+moved {
+  from = module.github_deploy.google_service_account_iam_member.github_deploy_acts_as_mcp[0]
+  to   = module.mcp.google_service_account_iam_member.deploy_acts_as["serviceAccount:gh-deploy-sandbox@project-8011a04e-e026-4189-b28.iam.gserviceaccount.com"]
+}
 # FE deploy writer: flat → github_deploy → frontends (bucket owns its IAM)
 moved {
   from = google_storage_bucket_iam_member.github_deploy_frontend[0]
