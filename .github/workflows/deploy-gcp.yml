@@ -103,6 +103,8 @@ jobs:
           # VITE_ORIGIN only needs a port for vite.config validation; API URL is what the SPA uses.
           VITE_ORIGIN: http://127.0.0.1:3000
           VITE_API_ORIGIN: ${{ env.API_URI }}
+          # Relative asset URLs required for https://storage.googleapis.com/<bucket>/index.html
+          VITE_BASE: ./
         run: |
           set -euo pipefail
           cat > web/config/.env.local <<EOF
