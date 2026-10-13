@@ -3,7 +3,7 @@ name: Deploy GCP
 # Deploys Cloud Run API + static FE bucket. Infra (AR, secrets, bucket, WIF) is
 # managed by local Terraform; this workflow builds/pushes and updates the service.
 # Auth: GitHub OIDC → Workload Identity Federation (no JSON key).
-# Config: GitHub Environment "gcp" variables (see docs/ci-cd.md).
+# Config: GitHub Environment "sandbox" variables (see docs/ci-cd.md).
 
 on:
   push:
@@ -23,7 +23,7 @@ jobs:
     name: Deploy Cloud Run + FE
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    environment: gcp
+    environment: sandbox
     env:
       GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
       GCP_REGION: ${{ vars.GCP_REGION }}

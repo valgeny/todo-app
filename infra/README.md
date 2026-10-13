@@ -102,4 +102,4 @@ terraform output -raw workload_identity_provider
 terraform output -raw github_deploy_sa_email
 ```
 
-Set them as GitHub Environment **`gcp`** variables (`GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_SERVICE_ACCOUNT`, plus project/region/bucket names). See [CI/CD — Deploy GCP](../docs/ci-cd.md#deploy-gcp-cloud-run--fe-bucket).
+Set them as GitHub Environment **`sandbox`** variables (`GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_SERVICE_ACCOUNT`, plus project/region/bucket names). See [CI/CD — Deploy GCP](../docs/ci-cd.md#deploy-gcp-cloud-run--fe-bucket).

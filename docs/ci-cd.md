@@ -54,7 +54,7 @@ terraform output -raw workload_identity_provider
 terraform output -raw github_deploy_sa_email
 ```
 
-2. Repo **Settings → Environments → `gcp` → Variables** (or `gh variable set --env gcp`):
+2. Repo **Settings → Environments → `sandbox` → Variables** (or `gh variable set --env sandbox`):
 
 | Variable | Sandbox value source |
 | --- | --- |
