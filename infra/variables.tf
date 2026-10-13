@@ -70,3 +70,15 @@ variable "github_repository" {
   description = "GitHub repository (owner/name) allowed to deploy via Workload Identity Federation."
   default     = "valgeny/todo-app"
 }
+
+variable "create_mcp" {
+  type        = bool
+  description = "Create Cloud Run Streamable HTTP MCP service (calls the API URI)."
+  default     = true
+}
+
+variable "mcp_image" {
+  type        = string
+  description = "Full container image URI for the MCP service. Empty = default …/{prefix}-mcp:latest."
+  default     = ""
+}

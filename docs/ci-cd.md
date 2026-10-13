@@ -8,7 +8,7 @@ GitHub Actions pipelines, report publishing, and GitHub Pages.
 | --- | --- | --- |
 | **CI** | `.github/workflows/ci.yml` | Every `push`; `pull_request` targeting `main` |
 | **Linter** | `.github/workflows/linter.yml` | PRs targeting `main` (Biome via reviewdog, inline comments) |
-| **Deploy GCP** | `.github/workflows/deploy-gcp.yml` | Push to `main`, or `workflow_dispatch` (needs `GCP_SA_KEY`) |
+| **Deploy GCP** | `.github/workflows/deploy-gcp.yml` | Push to `main`, or `workflow_dispatch` (WIF; no JSON key) |
 
 Concurrency is keyed by **event + branch** so a PR run cannot cancel the push that deploys Pages.
 
@@ -32,38 +32,44 @@ Test  ──┘
 
 Those jobs run only when `github.event_name == 'push'`. The `github-pages` environment rejects deployments from `refs/pull/*/merge`. On a PR, look at the **push** run for the branch to see Pages publish/deploy.
 
-## Deploy GCP (Cloud Run + FE bucket)
+## Deploy GCP (Cloud Run API + MCP + FE bucket)
 
 Workflow: `.github/workflows/deploy-gcp.yml`. Targets the **sandbox** stack (`todo-sandbox-*`). Infra is applied locally with `envs/sandbox.tfvars` ([infra/README.md](../infra/README.md)).
 
-| Step | Action |
+Jobs (API and MCP run **in parallel**; FE waits on API):
+
+| Job | Action |
 | --- | --- |
-| Auth | `google-github-actions/auth` via **Workload Identity Federation** (GitHub OIDC → deploy SA; no JSON key) |
-| API | `docker build` → Artifact Registry → `gcloud run deploy` |
-| Smoke | `GET /health` expects 204 |
-| FE | `yarn build` with `VITE_API_ORIGIN` = Cloud Run URL → `upload-cloud-storage` |
+| **API build + deploy** | `server/Dockerfile` → AR → `gcloud run deploy` → `/health` |
+| **MCP build + deploy** | `mcp/Dockerfile` → AR → deploy with `TODO_API_ORIGIN` from live API → `/health` |
+| **Frontend** | `yarn build` with `VITE_API_ORIGIN` → GCS upload |
+
+Auth is **Workload Identity Federation** on every job (no JSON key).
 
 ### One-time GitHub / GCP setup
 
-1. Apply Terraform (creates SA + WIF pool/provider + IAM):
+1. Apply Terraform (creates SA + WIF pool/provider + IAM + optional MCP service):
 
 ```bash
 cd infra
 terraform apply -var-file=envs/sandbox.tfvars
 terraform output -raw workload_identity_provider
 terraform output -raw github_deploy_sa_email
+terraform output -raw mcp_endpoint
 ```
 
 2. Repo **Settings → Environments → `sandbox` → Variables** (or `gh variable set --env sandbox`):
 
-| Variable | Sandbox value source |
+| Variable | Sandbox value |
 | --- | --- |
 | `GCP_WORKLOAD_IDENTITY_PROVIDER` | `terraform output -raw workload_identity_provider` |
 | `GCP_SERVICE_ACCOUNT` | `terraform output -raw github_deploy_sa_email` |
-| `GCP_PROJECT_ID` / `GCP_REGION` / `AR_REPO` / `CLOUD_RUN_SERVICE` / `IMAGE_NAME` / `FRONTEND_BUCKET` | match sandbox resource names |
+| `GCP_PROJECT_ID` / `GCP_REGION` / `AR_REPO` / `FRONTEND_BUCKET` | match sandbox |
+| `API_CLOUD_RUN_SERVICE` / `API_IMAGE_NAME` | `todo-sandbox-api` |
+| `MCP_CLOUD_RUN_SERVICE` / `MCP_IMAGE_NAME` | `todo-sandbox-mcp` |
 
 3. You do **not** need `GCP_SA_KEY`.
-4. Push to `main` or run **Deploy GCP** via Actions → workflow_dispatch.
+4. Push to `main` or **Actions → Deploy GCP → Run workflow**.
 
 ## GitHub Pages
 

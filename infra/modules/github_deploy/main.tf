@@ -28,6 +28,14 @@ resource "google_service_account_iam_member" "github_deploy_acts_as_api" {
   member             = "serviceAccount:${google_service_account.github_deploy.email}"
 }
 
+resource "google_service_account_iam_member" "github_deploy_acts_as_mcp" {
+  count = var.create_mcp ? 1 : 0
+
+  service_account_id = var.mcp_service_account_name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${google_service_account.github_deploy.email}"
+}
+
 # FE bucket objectAdmin is owned by modules/frontends (var.deploy_members).
 
 # --- Workload Identity Federation (GitHub OIDC) ---

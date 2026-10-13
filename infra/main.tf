@@ -7,6 +7,7 @@
 #   secrets           → Secret Manager (CORS_ORIGINS + secret_env)
 #   apis              → Cloud Run backend (SQLite) + runtime SA
 #   frontends         → public GCS website bucket (optional)
+#   mcp               → Cloud Run Streamable HTTP MCP (optional; calls apis URI)
 #   github_deploy     → CI deploy SA + GitHub OIDC (WIF, no JSON keys)
 #
 # Naming: {name_prefix}-{environment}-…  (e.g. todo-sandbox-api)
@@ -48,6 +49,8 @@ locals {
   )
 
   image = var.image != "" ? var.image : "${var.region}-docker.pkg.dev/${var.project_id}/${module.artifact_registry.repository_id}/${local.prefix}-api:latest"
+
+  mcp_image = var.mcp_image != "" ? var.mcp_image : "${var.region}-docker.pkg.dev/${var.project_id}/${module.artifact_registry.repository_id}/${local.prefix}-mcp:latest"
 }
 
 # -----------------------------------------------------------------------------
@@ -98,6 +101,22 @@ module "apis" {
   secret_resources           = module.secrets.secret_resources
 }
 
+module "mcp" {
+  source = "./modules/mcp"
+  count  = var.create_mcp ? 1 : 0
+
+  depends_on = [module.project_apis, module.artifact_registry, module.apis]
+
+  prefix                     = local.prefix
+  environment                = var.environment
+  region                     = var.region
+  labels                     = local.common_labels
+  image                      = local.mcp_image
+  api_uri                    = module.apis.uri
+  artifact_registry_location = module.artifact_registry.location
+  artifact_registry_name     = module.artifact_registry.name
+}
+
 module "github_deploy" {
   source = "./modules/github_deploy"
 
@@ -107,8 +126,10 @@ module "github_deploy" {
   environment                = var.environment
   artifact_registry_location = module.artifact_registry.location
   artifact_registry_name     = module.artifact_registry.name
-  api_service_account_name   = module.apis.service_account_name
-  github_repository          = var.github_repository
+  api_service_account_name = module.apis.service_account_name
+  create_mcp               = var.create_mcp
+  mcp_service_account_name = try(module.mcp[0].service_account_name, "")
+  github_repository        = var.github_repository
 }
 
 module "frontends" {
