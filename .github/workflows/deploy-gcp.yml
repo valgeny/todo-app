@@ -2,6 +2,7 @@ name: Deploy GCP
 
 # Deploys Cloud Run API + static FE bucket. Infra (AR, secrets, bucket) is managed
 # by local Terraform; this workflow only builds/pushes the image and updates the service.
+# Requires repo secret GCP_SA_KEY (deploy SA JSON key).
 
 on:
   push:
@@ -31,8 +32,6 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     environment: gcp
-    # Skip when the deploy SA secret is not configured (forks / first setup).
-    if: ${{ github.event_name == 'workflow_dispatch' || secrets.GCP_SA_KEY != '' }}
 
     steps:
       - name: Checkout
@@ -113,11 +112,14 @@ jobs:
           yarn build
 
       - name: Upload frontend to GCS
+        uses: google-github-actions/upload-cloud-storage@v2
+        with:
+          path: web/dist
+          destination: ${{ env.FRONTEND_BUCKET }}
+          parent: false
+
+      - name: Frontend summary
         run: |
-          set -euo pipefail
-          gcloud storage rsync --recursive --delete-unmatched-destination-objects \
-            web/dist "gs://${FRONTEND_BUCKET}" \
-            --project="${GCP_PROJECT_ID}"
           FE_URL="https://storage.googleapis.com/${FRONTEND_BUCKET}/index.html"
           echo "### Frontend" >> "$GITHUB_STEP_SUMMARY"
           echo "- ${FE_URL}" >> "$GITHUB_STEP_SUMMARY"
