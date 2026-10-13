@@ -18,5 +18,8 @@ name_prefix = "todo"
 
 create_frontend_bucket = true
 
+# GitHub repo allowed to impersonate gh-deploy-<env> via WIF (no JSON keys).
+github_repository = "valgeny/todo-app"
+
 # Extra Secret Manager → Cloud Run env (CORS_ORIGINS is always managed).
 secret_env = {}

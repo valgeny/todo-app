@@ -17,6 +17,7 @@ name_prefix = "todo"
 # image = "us-central1-docker.pkg.dev/your-gcp-project-id/todo-sandbox-api/todo-sandbox-api:latest"
 
 create_frontend_bucket = true
+github_repository      = "valgeny/todo-app"
 
 # Extra Secret Manager → Cloud Run env (CORS_ORIGINS is always managed).
 # When you add Cloud SQL later:

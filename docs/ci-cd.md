@@ -38,24 +38,31 @@ Workflow: `.github/workflows/deploy-gcp.yml`. Targets the **sandbox** stack (`to
 
 | Step | Action |
 | --- | --- |
-| Auth | `google-github-actions/auth` with secret `GCP_SA_KEY` |
+| Auth | `google-github-actions/auth` via **Workload Identity Federation** (GitHub OIDC → deploy SA; no JSON key) |
 | API | `docker build` → Artifact Registry → `gcloud run deploy` |
 | Smoke | `GET /health` expects 204 |
-| FE | `yarn build` with `VITE_API_ORIGIN` = Cloud Run URL → `gcloud storage rsync` to the public bucket |
+| FE | `yarn build` with `VITE_API_ORIGIN` = Cloud Run URL → `upload-cloud-storage` |
 
 ### One-time GitHub / GCP setup
 
-1. Apply Terraform for sandbox (creates SA `gh-deploy-sandbox` + IAM). Then create a **key once** (keys are not managed in Terraform):
+1. Apply Terraform (creates SA + WIF pool/provider + IAM):
 
 ```bash
 cd infra
 terraform apply -var-file=envs/sandbox.tfvars
-SA=$(terraform output -raw github_deploy_sa_email)
-gcloud iam service-accounts keys create github-deploy-key.json --iam-account="$SA"
+terraform output -raw workload_identity_provider
+terraform output -raw github_deploy_sa_email
 ```
 
-2. Repo **Settings → Secrets → Actions**: add `GCP_SA_KEY` = contents of `github-deploy-key.json`, then delete the local key file.
-3. Repo **Settings → Environments**: create `gcp` (optional reviewers).
+2. Repo **Settings → Environments → `gcp` → Variables** (or `gh variable set --env gcp`):
+
+| Variable | Sandbox value source |
+| --- | --- |
+| `GCP_WORKLOAD_IDENTITY_PROVIDER` | `terraform output -raw workload_identity_provider` |
+| `GCP_SERVICE_ACCOUNT` | `terraform output -raw github_deploy_sa_email` |
+| `GCP_PROJECT_ID` / `GCP_REGION` / `AR_REPO` / `CLOUD_RUN_SERVICE` / `IMAGE_NAME` / `FRONTEND_BUCKET` | match sandbox resource names |
+
+3. You do **not** need `GCP_SA_KEY`.
 4. Push to `main` or run **Deploy GCP** via Actions → workflow_dispatch.
 
 ## GitHub Pages

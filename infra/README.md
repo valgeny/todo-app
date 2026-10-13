@@ -92,15 +92,14 @@ cd infra
 terraform destroy -var-file=envs/sandbox.tfvars
 ```
 
-## CI deploy
+## CI deploy (Workload Identity Federation)
 
-Terraform creates SA `gh-deploy-<env>` with scoped roles (Artifact Registry writer, Cloud Run admin, act-as on the API SA, objectAdmin on the FE bucket).
+Terraform creates SA `gh-deploy-<env>`, a GitHub OIDC identity pool/provider, and binds the repo (`github_repository`) as `roles/iam.workloadIdentityUser` on that SA. **No JSON keys** (works with `iam.disableServiceAccountKeyCreation`).
 
 ```bash
 terraform apply -var-file=envs/sandbox.tfvars
-SA=$(terraform output -raw github_deploy_sa_email)
-gcloud iam service-accounts keys create github-deploy-key.json --iam-account="$SA"
-# → GitHub Actions secret GCP_SA_KEY, then rm the json file
+terraform output -raw workload_identity_provider
+terraform output -raw github_deploy_sa_email
 ```
 
-Image build + Cloud Run update + FE upload: `.github/workflows/deploy-gcp.yml`. See [CI/CD — Deploy GCP](../docs/ci-cd.md#deploy-gcp-cloud-run--fe-bucket).
+Set them as GitHub Environment **`gcp`** variables (`GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_SERVICE_ACCOUNT`, plus project/region/bucket names). See [CI/CD — Deploy GCP](../docs/ci-cd.md#deploy-gcp-cloud-run--fe-bucket).

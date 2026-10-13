@@ -1,8 +1,7 @@
 # -----------------------------------------------------------------------------
-# modules/github_deploy — GitHub Actions deploy SA + scoped IAM
+# modules/github_deploy — GitHub Actions deploy SA + Workload Identity Federation
 #
-# Create a JSON key once outside Terraform for GitHub secret GCP_SA_KEY —
-# never store keys in Terraform state.
+# No JSON keys: GitHub OIDC → impersonate this SA (fits orgs that disable SA keys).
 # -----------------------------------------------------------------------------
 
 resource "google_service_account" "github_deploy" {
@@ -30,3 +29,38 @@ resource "google_service_account_iam_member" "github_deploy_acts_as_api" {
 }
 
 # FE bucket objectAdmin is owned by modules/frontends (var.deploy_members).
+
+# --- Workload Identity Federation (GitHub OIDC) ---
+
+resource "google_iam_workload_identity_pool" "github" {
+  workload_identity_pool_id = "github-actions"
+  display_name              = "GitHub Actions"
+  description               = "OIDC pool for GitHub Actions deploys"
+}
+
+resource "google_iam_workload_identity_pool_provider" "github" {
+  workload_identity_pool_id          = google_iam_workload_identity_pool.github.workload_identity_pool_id
+  workload_identity_pool_provider_id = "github"
+  display_name                       = "GitHub"
+  description                        = "GitHub Actions OIDC (${var.github_repository})"
+
+  attribute_mapping = {
+    "google.subject"       = "assertion.sub"
+    "attribute.actor"      = "assertion.actor"
+    "attribute.repository" = "assertion.repository"
+    "attribute.ref"        = "assertion.ref"
+  }
+
+  # Only tokens from this repo can use the pool provider.
+  attribute_condition = "assertion.repository == \"${var.github_repository}\""
+
+  oidc {
+    issuer_uri = "https://token.actions.githubusercontent.com"
+  }
+}
+
+resource "google_service_account_iam_member" "github_wif" {
+  service_account_id = google_service_account.github_deploy.name
+  role               = "roles/iam.workloadIdentityUser"
+  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.repository/${var.github_repository}"
+}

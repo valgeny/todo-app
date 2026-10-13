@@ -49,5 +49,10 @@ output "secret_ids" {
 
 output "github_deploy_sa_email" {
   value       = module.github_deploy.email
-  description = "Deploy SA email. Create a JSON key once for GitHub secret GCP_SA_KEY (do not manage keys in Terraform)."
+  description = "Deploy SA email for google-github-actions/auth (WIF service_account)."
+}
+
+output "workload_identity_provider" {
+  value       = module.github_deploy.workload_identity_provider
+  description = "WIF provider resource name for google-github-actions/auth (workload_identity_provider)."
 }

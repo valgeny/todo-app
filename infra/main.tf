@@ -7,7 +7,7 @@
 #   secrets           → Secret Manager (CORS_ORIGINS + secret_env)
 #   apis              → Cloud Run backend (SQLite) + runtime SA
 #   frontends         → public GCS website bucket (optional)
-#   github_deploy     → CI deploy SA + scoped IAM
+#   github_deploy     → CI deploy SA + GitHub OIDC (WIF, no JSON keys)
 #
 # Naming: {name_prefix}-{environment}-…  (e.g. todo-sandbox-api)
 # Apply:  terraform apply -var-file=envs/sandbox.tfvars
@@ -21,6 +21,8 @@ locals {
     "run.googleapis.com",
     "artifactregistry.googleapis.com",
     "iam.googleapis.com",
+    "iamcredentials.googleapis.com",
+    "sts.googleapis.com",
     "cloudbuild.googleapis.com",
     "secretmanager.googleapis.com",
   ]
@@ -99,11 +101,14 @@ module "apis" {
 module "github_deploy" {
   source = "./modules/github_deploy"
 
+  depends_on = [module.project_apis]
+
   project_id                 = var.project_id
   environment                = var.environment
   artifact_registry_location = module.artifact_registry.location
   artifact_registry_name     = module.artifact_registry.name
   api_service_account_name   = module.apis.service_account_name
+  github_repository          = var.github_repository
 }
 
 module "frontends" {

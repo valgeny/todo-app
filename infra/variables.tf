@@ -64,3 +64,9 @@ variable "secret_env" {
   sensitive   = true
   default     = {}
 }
+
+variable "github_repository" {
+  type        = string
+  description = "GitHub repository (owner/name) allowed to deploy via Workload Identity Federation."
+  default     = "valgeny/todo-app"
+}

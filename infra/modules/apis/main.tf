@@ -7,10 +7,10 @@
 # -----------------------------------------------------------------------------
 
 locals {
+  # Do not set PORT — Cloud Run reserves it and injects the container port.
   plain_env = {
     APP_ENV     = var.app_env
     ENVIRONMENT = var.environment
-    PORT        = tostring(var.port)
     HOST        = var.host
     LOG_FORMAT  = var.log_format
     DB_DIALECT  = var.db_dialect
