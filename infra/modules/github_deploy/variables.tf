@@ -22,11 +22,6 @@ variable "artifact_registry_name" {
   description = "Artifact Registry repository name."
 }
 
-variable "api_service_account_name" {
-  type        = string
-  description = "API runtime SA resource name (for roles/iam.serviceAccountUser)."
-}
-
 variable "github_repository" {
   type        = string
   description = "GitHub repo (owner/name) allowed to impersonate the deploy SA via WIF."

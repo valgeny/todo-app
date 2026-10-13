@@ -22,13 +22,8 @@ resource "google_project_iam_member" "github_deploy_run_admin" {
   member  = "serviceAccount:${google_service_account.github_deploy.email}"
 }
 
-resource "google_service_account_iam_member" "github_deploy_acts_as_api" {
-  service_account_id = var.api_service_account_name
-  role               = "roles/iam.serviceAccountUser"
-  member             = "serviceAccount:${google_service_account.github_deploy.email}"
-}
-
-# FE bucket objectAdmin is owned by modules/frontends (var.deploy_members).
+# Runtime act-as (API/MCP) and FE bucket write are owned by those modules via
+# var.deploy_members — this module only creates the deploy identity + WIF + AR/Run.
 
 # --- Workload Identity Federation (GitHub OIDC) ---
 

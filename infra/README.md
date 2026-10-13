@@ -11,7 +11,10 @@ Local Terraform state (`backend "local"`). **SQLite on Cloud Run is ephemeral**:
 | `secrets` | `modules/secrets` | Secret Manager secrets + versions |
 | **`apis`** | `modules/apis` | Cloud Run backend + runtime SA |
 | **`frontends`** | `modules/frontends` | Public GCS website bucket + deploy writers IAM (optional) |
-| `github_deploy` | `modules/github_deploy` | CI deploy SA + AR/Run/act-as IAM (FE write via `frontends.deploy_members`) |
+| **`mcp`** | `modules/mcp` | Cloud Run Streamable HTTP MCP + runtime SA (calls `apis` URI) |
+| `github_deploy` | `modules/github_deploy` | CI deploy SA + WIF + AR writer + Run admin (runtime act-as / FE write via each module’s `deploy_members`) |
+
+Do **not** reuse `modules/apis` for MCP: different image, no SQLite/secrets, and `TODO_API_ORIGIN` instead of DB/CORS env.
 
 Root `main.tf` only wires modules. `moved.tf` migrates existing flat state into modules without recreate.
 
@@ -59,21 +62,20 @@ terraform init
 terraform apply -var-file=envs/sandbox.tfvars
 ```
 
-Build and push the API image (repo root):
+Build and deploy API + MCP via **GitHub Actions** (Docker on the runner; no local Docker):
 
 ```bash
-PROJECT_ID=project-8011a04e-e026-4189-b28
-REGION=us-central1
-REPO=todo-sandbox-api
-IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/todo-sandbox-api:latest"
-
-gcloud auth configure-docker ${REGION}-docker.pkg.dev
-docker build --platform linux/amd64 -f server/Dockerfile -t "$IMAGE" . && docker push "$IMAGE"
-
-terraform -chdir=infra apply -var-file=envs/sandbox.tfvars -var="image=${IMAGE}"
+gh workflow run deploy-gcp.yml --ref mcp-cloud-run
+# or push to main
 ```
 
-Terraform prints `api_uri`. Health: `curl -i "$API_URI/health"`.
+After the first successful image push, re-apply Terraform if the MCP service was missing an image:
+
+```bash
+terraform -chdir=infra apply -var-file=envs/sandbox.tfvars
+```
+
+Terraform prints `api_uri` and `mcp_endpoint`. Health: `curl -i "$API_URI/health"` and `curl -i "$MCP_URI/health"`.
 
 ### Frontend (optional bucket)
 

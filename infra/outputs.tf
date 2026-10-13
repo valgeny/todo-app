@@ -56,3 +56,18 @@ output "workload_identity_provider" {
   value       = module.github_deploy.workload_identity_provider
   description = "WIF provider resource name for google-github-actions/auth (workload_identity_provider)."
 }
+
+output "mcp_uri" {
+  value       = module.mcp.uri
+  description = "Cloud Run MCP service URL."
+}
+
+output "mcp_endpoint" {
+  value       = module.mcp.mcp_endpoint
+  description = "Streamable HTTP MCP endpoint (…/mcp)."
+}
+
+output "mcp_image" {
+  value       = local.mcp_image
+  description = "Container image URI for the MCP service."
+}

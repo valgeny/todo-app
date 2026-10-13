@@ -1,13 +1,12 @@
 name: Deploy GCP
 
-# Deploys Cloud Run API + static FE bucket. Infra (AR, secrets, bucket, WIF) is
-# managed by local Terraform; this workflow builds/pushes and updates the service.
+# Deploys Cloud Run API + MCP + static FE bucket in parallel where possible.
+# Infra (AR, secrets, bucket, WIF) is managed by local Terraform.
 # Auth: GitHub OIDC → Workload Identity Federation (no JSON key).
 # Config: GitHub Environment "sandbox" variables (see docs/ci-cd.md).
 
 on:
   push:
-    branches: [main]
   workflow_dispatch:
 
 concurrency:
@@ -19,41 +18,37 @@ permissions:
   id-token: write
 
 jobs:
-  deploy:
-    name: Deploy Cloud Run + FE
+  deploy-api:
+    name: API build + deploy
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 25
     environment: sandbox
+    outputs:
+      api_uri: ${{ steps.deploy.outputs.api_uri }}
     env:
       GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
       GCP_REGION: ${{ vars.GCP_REGION }}
       AR_REPO: ${{ vars.AR_REPO }}
-      CLOUD_RUN_SERVICE: ${{ vars.CLOUD_RUN_SERVICE }}
-      IMAGE_NAME: ${{ vars.IMAGE_NAME }}
-      FRONTEND_BUCKET: ${{ vars.FRONTEND_BUCKET }}
+      API_CLOUD_RUN_SERVICE: ${{ vars.API_CLOUD_RUN_SERVICE }}
+      API_IMAGE_NAME: ${{ vars.API_IMAGE_NAME }}
       GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
       GCP_SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
+      - uses: actions/checkout@v5
 
-      - name: Authenticate to Google Cloud
-        id: auth
-        uses: google-github-actions/auth@v3
+      - uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
 
-      - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v3
+      - uses: google-github-actions/setup-gcloud@v3
 
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker "${GCP_REGION}-docker.pkg.dev" --quiet
 
       - name: Build and push API image
         env:
-          IMAGE: ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/${{ env.IMAGE_NAME }}
+          IMAGE: ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/${{ env.API_IMAGE_NAME }}
         run: |
           set -euo pipefail
           docker build --platform linux/amd64 -f server/Dockerfile \
@@ -64,25 +59,27 @@ jobs:
           docker push "${IMAGE}:latest"
           echo "IMAGE_REF=${IMAGE}:${GITHUB_SHA}" >> "$GITHUB_ENV"
 
-      - name: Deploy Cloud Run
+      - name: Deploy Cloud Run API
+        id: deploy
         run: |
           set -euo pipefail
-          gcloud run deploy "${CLOUD_RUN_SERVICE}" \
+          gcloud run deploy "${API_CLOUD_RUN_SERVICE}" \
             --project="${GCP_PROJECT_ID}" \
             --region="${GCP_REGION}" \
             --image="${IMAGE_REF}" \
             --quiet
-          API_URI=$(gcloud run services describe "${CLOUD_RUN_SERVICE}" \
+          API_URI=$(gcloud run services describe "${API_CLOUD_RUN_SERVICE}" \
             --project="${GCP_PROJECT_ID}" \
             --region="${GCP_REGION}" \
             --format='value(status.url)')
-          echo "API_URI=${API_URI}" >> "$GITHUB_ENV"
-          echo "### Cloud Run" >> "$GITHUB_STEP_SUMMARY"
-          echo "- API: ${API_URI}" >> "$GITHUB_STEP_SUMMARY"
+          echo "api_uri=${API_URI}" >> "$GITHUB_OUTPUT"
+          echo "### API" >> "$GITHUB_STEP_SUMMARY"
+          echo "- ${API_URI}" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Smoke health check
+      - name: Smoke API health
         run: |
           set -euo pipefail
+          API_URI="${{ steps.deploy.outputs.api_uri }}"
           for i in $(seq 1 20); do
             code=$(curl -sf -o /dev/null -w '%{http_code}' "${API_URI}/health" || echo 000)
             [ "$code" = "204" ] && exit 0
@@ -91,8 +88,107 @@ jobs:
           echo "Health check failed against ${API_URI}/health" >&2
           exit 1
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
+  deploy-mcp:
+    name: MCP build + deploy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    environment: sandbox
+    # Parallel with deploy-api; TODO_API_ORIGIN from the live API service URL.
+    env:
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      GCP_REGION: ${{ vars.GCP_REGION }}
+      AR_REPO: ${{ vars.AR_REPO }}
+      API_CLOUD_RUN_SERVICE: ${{ vars.API_CLOUD_RUN_SERVICE }}
+      MCP_CLOUD_RUN_SERVICE: ${{ vars.MCP_CLOUD_RUN_SERVICE }}
+      MCP_IMAGE_NAME: ${{ vars.MCP_IMAGE_NAME }}
+      GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+      GCP_SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v3
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker "${GCP_REGION}-docker.pkg.dev" --quiet
+
+      - name: Resolve live API URI
+        id: api
+        run: |
+          set -euo pipefail
+          API_URI=$(gcloud run services describe "${API_CLOUD_RUN_SERVICE}" \
+            --project="${GCP_PROJECT_ID}" \
+            --region="${GCP_REGION}" \
+            --format='value(status.url)')
+          echo "api_uri=${API_URI}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push MCP image
+        env:
+          IMAGE: ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/${{ env.MCP_IMAGE_NAME }}
+        run: |
+          set -euo pipefail
+          docker build --platform linux/amd64 -f mcp/Dockerfile \
+            -t "${IMAGE}:${GITHUB_SHA}" \
+            -t "${IMAGE}:latest" \
+            .
+          docker push "${IMAGE}:${GITHUB_SHA}"
+          docker push "${IMAGE}:latest"
+          echo "IMAGE_REF=${IMAGE}:${GITHUB_SHA}" >> "$GITHUB_ENV"
+
+      - name: Deploy Cloud Run MCP
+        id: deploy
+        run: |
+          set -euo pipefail
+          gcloud run deploy "${MCP_CLOUD_RUN_SERVICE}" \
+            --project="${GCP_PROJECT_ID}" \
+            --region="${GCP_REGION}" \
+            --image="${IMAGE_REF}" \
+            --allow-unauthenticated \
+            --update-env-vars="TODO_API_ORIGIN=${{ steps.api.outputs.api_uri }}" \
+            --quiet
+          MCP_URI=$(gcloud run services describe "${MCP_CLOUD_RUN_SERVICE}" \
+            --project="${GCP_PROJECT_ID}" \
+            --region="${GCP_REGION}" \
+            --format='value(status.url)')
+          echo "mcp_uri=${MCP_URI}" >> "$GITHUB_OUTPUT"
+          echo "### MCP" >> "$GITHUB_STEP_SUMMARY"
+          echo "- ${MCP_URI}/mcp" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Smoke MCP health
+        run: |
+          set -euo pipefail
+          MCP_URI="${{ steps.deploy.outputs.mcp_uri }}"
+          for i in $(seq 1 20); do
+            code=$(curl -sf -o /dev/null -w '%{http_code}' "${MCP_URI}/health" || echo 000)
+            [ "$code" = "204" ] && exit 0
+            sleep 3
+          done
+          echo "Health check failed against ${MCP_URI}/health" >&2
+          exit 1
+
+  deploy-fe:
+    name: Frontend build + upload
+    needs: [deploy-api]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: sandbox
+    env:
+      FRONTEND_BUCKET: ${{ vars.FRONTEND_BUCKET }}
+      GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+      GCP_SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
+
+      - uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: yarn
@@ -102,10 +198,8 @@ jobs:
 
       - name: Build web (pointed at Cloud Run)
         env:
-          # VITE_ORIGIN only needs a port for vite.config validation; API URL is what the SPA uses.
           VITE_ORIGIN: http://127.0.0.1:3000
-          VITE_API_ORIGIN: ${{ env.API_URI }}
-          # Relative asset URLs required for https://storage.googleapis.com/<bucket>/index.html
+          VITE_API_ORIGIN: ${{ needs.deploy-api.outputs.api_uri }}
           VITE_BASE: ./
         run: |
           set -euo pipefail

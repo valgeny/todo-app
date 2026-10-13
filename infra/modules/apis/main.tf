@@ -38,6 +38,15 @@ resource "google_secret_manager_secret_iam_member" "api_accessor" {
   member    = "serviceAccount:${google_service_account.api.email}"
 }
 
+# CI / deploy identities that may gcloud run deploy this service (act-as runtime SA).
+resource "google_service_account_iam_member" "deploy_acts_as" {
+  for_each = toset(var.deploy_members)
+
+  service_account_id = google_service_account.api.name
+  role               = "roles/iam.serviceAccountUser"
+  member             = each.value
+}
+
 resource "google_cloud_run_v2_service" "api" {
   depends_on = [
     google_artifact_registry_repository_iam_member.api_reader,

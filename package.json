@@ -17,6 +17,7 @@
     "build": "yarn workspace web build",
     "openapi:build": "yarn workspace server openapi:build",
     "mcp": "node --import tsx mcp/src/index.ts",
+    "mcp:http": "yarn workspace mcp start:http",
     "mcp:inspect": "yarn workspace mcp inspect",
     "lint": "biome check .",
     "format": "biome check --write .",
