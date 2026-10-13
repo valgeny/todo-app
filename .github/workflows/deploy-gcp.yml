@@ -1,0 +1,123 @@
+name: Deploy GCP
+
+# Deploys Cloud Run API + static FE bucket. Infra (AR, secrets, bucket) is managed
+# by local Terraform; this workflow only builds/pushes the image and updates the service.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-gcp-${{ github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  # Sandbox (see infra/envs/sandbox.tfvars)
+  GCP_PROJECT_ID: project-8011a04e-e026-4189-b28
+  GCP_REGION: us-central1
+  AR_REPO: todo-sandbox-api
+  CLOUD_RUN_SERVICE: todo-sandbox-api
+  IMAGE_NAME: todo-sandbox-api
+  FRONTEND_BUCKET: project-8011a04e-e026-4189-b28-todo-sandbox-web
+
+jobs:
+  deploy:
+    name: Deploy Cloud Run + FE
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: gcp
+    # Skip when the deploy SA secret is not configured (forks / first setup).
+    if: ${{ github.event_name == 'workflow_dispatch' || secrets.GCP_SA_KEY != '' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker "${GCP_REGION}-docker.pkg.dev" --quiet
+
+      - name: Build and push API image
+        env:
+          IMAGE: ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/${{ env.IMAGE_NAME }}
+        run: |
+          set -euo pipefail
+          docker build --platform linux/amd64 -f server/Dockerfile \
+            -t "${IMAGE}:${GITHUB_SHA}" \
+            -t "${IMAGE}:latest" \
+            .
+          docker push "${IMAGE}:${GITHUB_SHA}"
+          docker push "${IMAGE}:latest"
+          echo "IMAGE_REF=${IMAGE}:${GITHUB_SHA}" >> "$GITHUB_ENV"
+
+      - name: Deploy Cloud Run
+        run: |
+          set -euo pipefail
+          gcloud run deploy "${CLOUD_RUN_SERVICE}" \
+            --project="${GCP_PROJECT_ID}" \
+            --region="${GCP_REGION}" \
+            --image="${IMAGE_REF}" \
+            --quiet
+          API_URI=$(gcloud run services describe "${CLOUD_RUN_SERVICE}" \
+            --project="${GCP_PROJECT_ID}" \
+            --region="${GCP_REGION}" \
+            --format='value(status.url)')
+          echo "API_URI=${API_URI}" >> "$GITHUB_ENV"
+          echo "### Cloud Run" >> "$GITHUB_STEP_SUMMARY"
+          echo "- API: ${API_URI}" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Smoke health check
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 20); do
+            code=$(curl -sf -o /dev/null -w '%{http_code}' "${API_URI}/health" || echo 000)
+            [ "$code" = "204" ] && exit 0
+            sleep 3
+          done
+          echo "Health check failed against ${API_URI}/health" >&2
+          exit 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build web (pointed at Cloud Run)
+        env:
+          # VITE_ORIGIN only needs a port for vite.config validation; API URL is what the SPA uses.
+          VITE_ORIGIN: http://127.0.0.1:3000
+          VITE_API_ORIGIN: ${{ env.API_URI }}
+        run: |
+          set -euo pipefail
+          cat > web/config/.env.local <<EOF
+          VITE_ORIGIN=${VITE_ORIGIN}
+          VITE_API_ORIGIN=${VITE_API_ORIGIN}
+          EOF
+          yarn build
+
+      - name: Upload frontend to GCS
+        run: |
+          set -euo pipefail
+          gcloud storage rsync --recursive --delete-unmatched-destination-objects \
+            web/dist "gs://${FRONTEND_BUCKET}" \
+            --project="${GCP_PROJECT_ID}"
+          FE_URL="https://storage.googleapis.com/${FRONTEND_BUCKET}/index.html"
+          echo "### Frontend" >> "$GITHUB_STEP_SUMMARY"
+          echo "- ${FE_URL}" >> "$GITHUB_STEP_SUMMARY"

@@ -7,11 +7,12 @@ import { DEFAULT_PORT } from './consts';
 const appEnv = process.env.APP_ENV ?? (process.env.NODE_ENV === 'test' ? 'test' : 'local');
 const envFile = path.resolve(__dirname, '../config', `.env.${appEnv}`);
 
-if (!fs.existsSync(envFile)) {
-  throw new Error(`Missing environment file ${envFile}`);
+// Local/dev: load gitignored `.env.${APP_ENV}` when present.
+// Cloud Run / CI: inject env via the platform (Terraform, workflow); file optional.
+// dotenv does not override variables already set in the process environment.
+if (fs.existsSync(envFile)) {
+  dotenv.config({ path: envFile });
 }
-
-dotenv.config({ path: envFile });
 
 const portSchema = z
   .string()
@@ -57,7 +58,10 @@ type AppConfig = z.infer<typeof configSchema>;
 
 const parsed = configSchema.safeParse(process.env);
 if (!parsed.success) {
-  throw new Error(`Invalid configuration in ${envFile}: ${parsed.error.message}`);
+  const source = fs.existsSync(envFile)
+    ? envFile
+    : `process env (no ${path.basename(envFile)}; copy from .env.example for local, or inject via Terraform on Cloud Run)`;
+  throw new Error(`Invalid configuration from ${source}: ${parsed.error.message}`);
 }
 
 const env: AppConfig = parsed.data;

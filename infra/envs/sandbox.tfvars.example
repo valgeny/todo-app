@@ -1,0 +1,22 @@
+# -----------------------------------------------------------------------------
+# envs/sandbox.tfvars.example — sandbox environment inputs
+#
+# Copy to sandbox.tfvars (gitignored) and set project_id:
+#   cp envs/sandbox.tfvars.example envs/sandbox.tfvars
+#   terraform apply -var-file=envs/sandbox.tfvars
+#
+# Creates resources prefixed todo-sandbox-* in the given GCP project.
+# -----------------------------------------------------------------------------
+
+project_id  = "your-gcp-project-id"
+environment = "sandbox"
+region      = "us-central1"
+name_prefix = "todo"
+
+# After first apply creates Artifact Registry, build/push then set:
+# image = "us-central1-docker.pkg.dev/your-gcp-project-id/todo-sandbox-api/todo-sandbox-api:latest"
+
+create_frontend_bucket = true
+
+# Extra Secret Manager → Cloud Run env (CORS_ORIGINS is always managed).
+secret_env = {}

@@ -25,6 +25,7 @@ credentials
 .env
 .env.*
 !.env.example
+!**/.env.example
 !web/config/.env.playwright
 !server/config/.env.test
 *.postman_environment.json
@@ -34,6 +35,21 @@ dist/
 
 data/*.sqlite
 data/*.sqlite-*
+server/data/*.sqlite
+server/data/*.sqlite-*
+
+# Terraform (local / generated — keep *.tf and *.tfvars.example in git)
+**/.terraform/
+**/.terraform.lock.hcl
+**/*.tfstate
+**/*.tfstate.*
+**/*.tfvars
+!**/*.tfvars.example
+**/.terraform.tfstate.lock.info
+**/crash.log
+**/crash.*.log
+**/override.tf
+**/*_override.tf
 
 # Local verification copy (see sandbox verification runs)
 sandbox/

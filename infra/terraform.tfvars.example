@@ -1,0 +1,27 @@
+# -----------------------------------------------------------------------------
+# terraform.tfvars.example — quick-start vars (mirrors sandbox)
+#
+# Prefer env-specific files under envs/:
+#   cp envs/sandbox.tfvars.example envs/sandbox.tfvars
+#   terraform apply -var-file=envs/sandbox.tfvars
+#
+# Root terraform.tfvars is gitignored; do not commit secrets.
+# -----------------------------------------------------------------------------
+
+project_id  = "your-gcp-project-id"
+environment = "sandbox"
+region      = "us-central1"
+name_prefix = "todo"
+
+# After first apply creates Artifact Registry, build/push then set:
+# image = "us-central1-docker.pkg.dev/your-gcp-project-id/todo-sandbox-api/todo-sandbox-api:latest"
+
+create_frontend_bucket = true
+
+# Extra Secret Manager → Cloud Run env (CORS_ORIGINS is always managed).
+# When you add Cloud SQL later:
+# secret_env = {
+#   DB_PASSWORD = "change-me"
+#   DB_USER     = "todo"
+# }
+secret_env = {}
