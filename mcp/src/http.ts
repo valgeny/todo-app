@@ -3,14 +3,14 @@
  * Stdio remains in index.ts for Cursor / local hosts.
  */
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { McpServer } from '@modelcontextprotocol/server';
 import {
-  NodeStreamableHTTPServerTransport,
   hostHeaderValidation,
   localhostHostValidation,
   localhostOriginValidation,
+  NodeStreamableHTTPServerTransport,
   originValidation
 } from '@modelcontextprotocol/node';
+import { McpServer } from '@modelcontextprotocol/server';
 import { createTodoApiClient, getApiOrigin } from './client.js';
 import { registerTodoTools } from './tools.js';
 

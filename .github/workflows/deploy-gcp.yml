@@ -7,7 +7,6 @@ name: Deploy GCP
 
 on:
   push:
-    branches: [main]
   workflow_dispatch:
 
 concurrency:
@@ -95,7 +94,6 @@ jobs:
     timeout-minutes: 25
     environment: sandbox
     # Parallel with deploy-api; TODO_API_ORIGIN from the live API service URL.
-    if: ${{ vars.MCP_CLOUD_RUN_SERVICE != '' && vars.MCP_IMAGE_NAME != '' }}
     env:
       GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
       GCP_REGION: ${{ vars.GCP_REGION }}

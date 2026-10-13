@@ -8,7 +8,7 @@ GitHub Actions pipelines, report publishing, and GitHub Pages.
 | --- | --- | --- |
 | **CI** | `.github/workflows/ci.yml` | Every `push`; `pull_request` targeting `main` |
 | **Linter** | `.github/workflows/linter.yml` | PRs targeting `main` (Biome via reviewdog, inline comments) |
-| **Deploy GCP** | `.github/workflows/deploy-gcp.yml` | Push to `main`, or `workflow_dispatch` (WIF; no JSON key) |
+| **Deploy GCP** | `.github/workflows/deploy-gcp.yml` | Every `push`, or `workflow_dispatch` (WIF; no JSON key) |
 
 Concurrency is keyed by **event + branch** so a PR run cannot cancel the push that deploys Pages.
 
@@ -69,7 +69,7 @@ terraform output -raw mcp_endpoint
 | `MCP_CLOUD_RUN_SERVICE` / `MCP_IMAGE_NAME` | `todo-sandbox-mcp` |
 
 3. You do **not** need `GCP_SA_KEY`.
-4. Push to `main` or **Actions → Deploy GCP → Run workflow**.
+4. Push any branch or **Actions → Deploy GCP → Run workflow**.
 
 ## GitHub Pages
 
