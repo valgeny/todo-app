@@ -21,9 +21,12 @@ SEED_PATH = Path(__file__).with_name("dataset_seed.json")
 
 
 def _load_env() -> None:
-    agent_root = Path(__file__).resolve().parents[1]
-    load_dotenv(agent_root / ".env")
-    load_dotenv(agent_root / ".env.local")
+    config = Path(__file__).resolve().parents[1] / "config"
+    load_dotenv(config / ".env")
+    load_dotenv(config / ".env.local")
+    sandbox = config / ".env.local2sandbox"
+    if sandbox.is_file():
+        load_dotenv(sandbox, override=False)
 
 
 def ensure_dataset(client: Client) -> str:
@@ -63,9 +66,11 @@ def target(inputs: dict) -> dict:
 def main() -> None:
     _load_env()
     if not os.environ.get("LANGSMITH_API_KEY"):
-        raise SystemExit("Set LANGSMITH_API_KEY in agent/.env")
-    if not os.environ.get("GOOGLE_API_KEY"):
-        raise SystemExit("Set GOOGLE_API_KEY in agent/.env")
+        raise SystemExit("Set LANGSMITH_API_KEY in agent/config/.env")
+    if not os.environ.get("TODO_MCP_URL"):
+        raise SystemExit("Set TODO_MCP_URL (MCP Streamable HTTP endpoint)")
+    if not os.environ.get("GOOGLE_API_KEY") and not os.environ.get("GOOGLE_CLOUD_PROJECT"):
+        raise SystemExit("Set GOOGLE_API_KEY or GOOGLE_CLOUD_PROJECT (Vertex ADC)")
 
     client = Client()
     dataset_name = ensure_dataset(client)
