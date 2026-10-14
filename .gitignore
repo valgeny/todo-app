@@ -32,6 +32,11 @@ credentials
 
 .DS_Store
 dist/
+__pycache__/
+**/__pycache__/
+
+# LangGraph local Agent Server / Studio checkpoints
+agent/.langgraph_api/
 
 data/*.sqlite
 data/*.sqlite-*
