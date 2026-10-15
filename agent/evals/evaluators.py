@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import os
 from typing import Any
 
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from dataset_io import question_from_inputs
+from todo_agent.graph import _build_llm
 
 
 def _as_mapping(obj: Any) -> dict[str, Any]:
@@ -93,8 +92,7 @@ def final_response_judge(run: Any, example: Any) -> dict[str, Any]:
     except ValueError:
         question = ""
 
-    model_id = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
-    llm = ChatGoogleGenerativeAI(model=model_id, temperature=0)
+    llm = _build_llm()  # API key or Vertex + ADC (same as agent)
     verdict = llm.invoke(
         [
             SystemMessage(

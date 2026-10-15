@@ -183,5 +183,27 @@ def require_eval_env() -> None:
     require_langsmith_env()
     if not os.environ.get("TODO_MCP_URL"):
         raise SystemExit("Set TODO_MCP_URL (MCP Streamable HTTP endpoint)")
-    if not os.environ.get("GOOGLE_API_KEY") and not os.environ.get("GOOGLE_CLOUD_PROJECT"):
-        raise SystemExit("Set GOOGLE_API_KEY or GOOGLE_CLOUD_PROJECT (Vertex ADC)")
+    # Empty GOOGLE_API_KEY= in dotenv should not block Vertex + ADC.
+    api_key = (os.environ.get("GOOGLE_API_KEY") or "").strip()
+    if not api_key:
+        os.environ.pop("GOOGLE_API_KEY", None)
+    project = os.environ.get("GOOGLE_CLOUD_PROJECT") or os.environ.get("GCLOUD_PROJECT")
+    if not api_key and not project:
+        try:
+            import subprocess
+
+            gcloud_project = subprocess.check_output(
+                ["gcloud", "config", "get-value", "project"],
+                text=True,
+                stderr=subprocess.DEVNULL,
+            ).strip()
+            if gcloud_project and gcloud_project != "(unset)":
+                os.environ.setdefault("GOOGLE_CLOUD_PROJECT", gcloud_project)
+                project = gcloud_project
+        except Exception:  # noqa: BLE001
+            pass
+    if not api_key and not project:
+        raise SystemExit(
+            "Set GOOGLE_API_KEY, or GOOGLE_CLOUD_PROJECT for Vertex + ADC "
+            "(gcloud auth application-default login)"
+        )
