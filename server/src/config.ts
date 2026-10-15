@@ -2,10 +2,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import dotenv from 'dotenv';
 import { z } from 'zod';
-import type { DatabaseConfig } from './storage/types';
-// Engines only (not storage/dataSource) to avoid cycle: dataSource → config → …
-import { storageEnvSchema, type StorageEnv } from './storage/engines';
 import { DEFAULT_PORT } from './consts';
+// Engines only (not storage/dataSource) to avoid cycle: dataSource → config → …
+import { type StorageEnv, storageEnvSchema } from './storage/engines';
+import type { DatabaseConfig } from './storage/types';
 
 const appEnv = process.env.APP_ENV ?? (process.env.NODE_ENV === 'test' ? 'test' : 'local');
 const envFile = path.resolve(__dirname, '../config', `.env.${appEnv}`);
