@@ -1,0 +1,109 @@
+[
+  {
+    "id": "list-incomplete",
+    "inputs": {
+      "messages": [
+        { "role": "human", "content": "List my incomplete todos." }
+      ]
+    },
+    "outputs": {
+      "reference": "A short summary of incomplete todos from the API (titles and ids).",
+      "trajectory": [{ "tool": "list_todos", "args": { "status": "incomplete" } }]
+    },
+    "metadata": {
+      "slice": "trajectory",
+      "local_id": "list-incomplete",
+      "expect": "positive"
+    }
+  },
+  {
+    "id": "list-all",
+    "inputs": {
+      "messages": [
+        { "role": "human", "content": "Show all my todos." }
+      ]
+    },
+    "outputs": {
+      "reference": "Lists todos (any status) returned by the API.",
+      "trajectory": [{ "tool": "list_todos", "args": { "status": "all" } }]
+    },
+    "metadata": {
+      "slice": "trajectory",
+      "local_id": "list-all",
+      "expect": "positive"
+    }
+  },
+  {
+    "id": "create-milk",
+    "inputs": {
+      "messages": [
+        { "role": "human", "content": "Add a todo titled Buy milk." }
+      ]
+    },
+    "outputs": {
+      "reference": "Confirms creation of a todo titled Buy milk and includes its todoId.",
+      "trajectory": [{ "tool": "create_todo", "args": { "title": "Buy milk" } }]
+    },
+    "metadata": {
+      "slice": "trajectory",
+      "local_id": "create-milk",
+      "expect": "positive"
+    }
+  },
+  {
+    "id": "create-with-due",
+    "inputs": {
+      "messages": [
+        { "role": "human", "content": "Create a todo: Call dentist, due 2030-01-15." }
+      ]
+    },
+    "outputs": {
+      "reference": "Confirms a todo Call dentist with due date 2030-01-15.",
+      "trajectory": [
+        {
+          "tool": "create_todo",
+          "args": { "title": "Call dentist", "dueDate": "2030-01-15" }
+        }
+      ]
+    },
+    "metadata": {
+      "slice": "trajectory",
+      "local_id": "create-with-due",
+      "expect": "positive"
+    }
+  },
+  {
+    "id": "list-overdue",
+    "inputs": {
+      "messages": [
+        { "role": "human", "content": "Which todos are overdue?" }
+      ]
+    },
+    "outputs": {
+      "reference": "Reports overdue items from list_todos with status overdue.",
+      "trajectory": [{ "tool": "list_todos", "args": { "status": "overdue" } }]
+    },
+    "metadata": {
+      "slice": "trajectory",
+      "local_id": "list-overdue",
+      "expect": "positive"
+    }
+  },
+  {
+    "id": "refuse-non-todo",
+    "inputs": {
+      "messages": [
+        { "role": "human", "content": "What is the capital of France?" }
+      ]
+    },
+    "outputs": {
+      "reference": "Declines or briefly answers without calling todo tools, or explains it only handles todos.",
+      "trajectory": []
+    },
+    "metadata": {
+      "slice": "final",
+      "local_id": "refuse-non-todo",
+      "expect": "negative"
+    }
+  }
+]

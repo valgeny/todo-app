@@ -9,7 +9,7 @@ Programmatic agent over the To-Do List **MCP** server (Streamable HTTP). No chat
 | Orchestration | LangGraph (`create_react_agent`) |
 | LLM | Gemini via `langchain-google-genai` (API key or Vertex ADC) |
 | Tools | MCP `tools/list` via `langchain-mcp-adapters` → `TODO_MCP_URL` |
-| Evals | LangSmith datasets + trajectory / final-response evaluators |
+| Evals | LangSmith datasets + static + LLM-as-judge evaluators |
 
 ## Setup
 
@@ -63,10 +63,25 @@ This is separate from the CLI: Studio talks to a local Agent Server that still c
 
 ## Evals
 
-Seed goldens: [`evals/dataset_seed.json`](evals/dataset_seed.json). Needs MCP up + LangSmith key:
+Local goldens live under [`evals/datasets/{name}/examples.json`](evals/datasets/todo-agent-v1/examples.json) (default name `todo-agent-v1`). Inputs use LangGraph-compatible `messages` (required for Studio “Run experiment”); not bare `question`. Needs MCP up + LangSmith key.
 
 ```bash
+# Sync dataset (same name local ↔ remote; full override)
+uv run python evals/sync_dataset.py --name todo-agent-v1 --push --yes   # local wins
+uv run python evals/sync_dataset.py --name todo-agent-v1 --pull --yes   # remote wins
+
+# Run experiment (optional --sync pushes local first)
 uv run python evals/run_eval.py
+uv run python evals/run_eval.py --sync
+
+# Feedback keys: answer_min_chars, trajectory_subsequence (static);
+#   trajectory_llm_judge, intent_satisfied, final_response_judge (LLM / Vertex ADC).
+# Dataset metadata.expect: "positive" | "negative" (refuse / out-of-scope cases).
+# Optional: EVAL_MIN_ANSWER_CHARS=20
+
+# Pytest fixture pushes results to LangSmith (skips if env missing)
+uv sync --extra dev
+uv run pytest -m langsmith
 ```
 
 ## Layout
@@ -75,5 +90,6 @@ uv run python evals/run_eval.py
 agent/
   config/             # .env.example, .env.local, .env.local2sandbox (gitignored except example)
   src/todo_agent/     # graph, MCP loader, CLI
-  evals/              # seed dataset + LangSmith runner
+  evals/              # datasets/, sync + LangSmith runner, evaluators
+  tests/              # pytest + LangSmith eval fixture
 ```
