@@ -1,7 +1,7 @@
 # -----------------------------------------------------------------------------
 # variables.tf — App environment stack (identical for sandbox / staging / prod)
 #
-# Required stack outputs: sql_*, artifact_registry_*, deploy_sa_email.
+# Required stack outputs: sql_*, artifact_registry_*, deploy_sa_email, iap_*.
 # -----------------------------------------------------------------------------
 
 variable "project_id" {
@@ -61,6 +61,22 @@ variable "deploy_sa_email" {
   description = "GitHub deploy SA email from the project stack output."
 }
 
+variable "iap_oauth_client_id" {
+  type        = string
+  description = "IAP OAuth client ID from the project stack output."
+}
+
+variable "iap_oauth_client_secret" {
+  type        = string
+  description = "IAP OAuth client secret from the project stack output."
+  sensitive   = true
+}
+
+variable "iap_members" {
+  type        = list(string)
+  description = "IAP accessors from the project stack output."
+}
+
 variable "image" {
   type        = string
   description = "Full container image URI for the API. Empty = default …/{prefix}-api:latest."
@@ -71,6 +87,17 @@ variable "mcp_image" {
   type        = string
   description = "Full container image URI for the MCP service. Empty = default …/{prefix}-mcp:latest."
   default     = ""
+}
+
+variable "agent_image" {
+  type        = string
+  description = "Full container image URI for the LangGraph agent. Empty = default …/{prefix}-agent:latest."
+  default     = ""
+}
+
+variable "agent_iap_host" {
+  type        = string
+  description = "DNS hostname for the agent IAP HTTPS load balancer (e.g. agent-sandbox.example.com)."
 }
 
 variable "secret_env" {

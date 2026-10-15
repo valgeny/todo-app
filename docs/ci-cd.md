@@ -32,16 +32,17 @@ Test  ──┘
 
 Those jobs run only when `github.event_name == 'push'`. The `github-pages` environment rejects deployments from `refs/pull/*/merge`. On a PR, look at the **push** run for the branch to see Pages publish/deploy.
 
-## Deploy GCP (Cloud Run API + MCP + FE bucket)
+## Deploy GCP (Cloud Run API + MCP + agent + FE bucket)
 
-Workflow: `.github/workflows/deploy-gcp.yml`. Targets the **sandbox** env (`todo-sandbox-*`). Infra: apply **`stack/`** (nonprod) once, then **`env/`** with `envs/sandbox.tfvars` ([infra/README.md](../infra/README.md)).
+Workflow: `.github/workflows/deploy-gcp.yml`. Targets the **sandbox** env (`todo-sandbox-*`). Infra: apply **`stack/`** (nonprod) once, then **`env/`** with `envs/sandbox.tfvars` ([infra/README.md](../infra/README.md)). Agent IAP LB is Terraform-only; the workflow only builds/pushes the agent image.
 
-Jobs (API and MCP run **in parallel**; FE waits on API):
+Jobs (API and MCP run **in parallel**; agent waits on MCP; FE waits on API):
 
 | Job | Action |
 | --- | --- |
 | **API build + deploy** | `server/Dockerfile` → AR → `gcloud run deploy` → `/health` |
 | **MCP build + deploy** | `mcp/Dockerfile` → AR → deploy with `TODO_API_ORIGIN` from live API → `/health` |
+| **Agent build + deploy** | `agent/Dockerfile` → AR → deploy with `TODO_MCP_URL` from live MCP → Ready check (no public curl; IAP) |
 | **Frontend** | `yarn build` with `VITE_API_ORIGIN` → GCS upload |
 
 Auth is **Workload Identity Federation** on every job (no JSON key).
@@ -73,6 +74,7 @@ terraform -chdir=env output -raw mcp_endpoint
 | `GCP_PROJECT_ID` / `GCP_REGION` / `FRONTEND_BUCKET` | match sandbox |
 | `API_CLOUD_RUN_SERVICE` / `API_IMAGE_NAME` | `todo-sandbox-api` |
 | `MCP_CLOUD_RUN_SERVICE` / `MCP_IMAGE_NAME` | `todo-sandbox-mcp` |
+| `AGENT_CLOUD_RUN_SERVICE` / `AGENT_IMAGE_NAME` | `todo-sandbox-agent` |
 
 3. You do **not** need `GCP_SA_KEY`.
 4. Push any branch or **Actions → Deploy GCP → Run workflow**.

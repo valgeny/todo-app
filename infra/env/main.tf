@@ -1,7 +1,7 @@
 # -----------------------------------------------------------------------------
 # main.tf — App environment stack (identical every environment)
 #
-# Creates: logical DB, secrets, Cloud Run API/MCP, FE bucket.
+# Creates: logical DB, secrets, Cloud Run API/MCP/agent(+IAP), FE bucket.
 # Requires project stack outputs in tfvars (no data-source fallbacks).
 #
 #   terraform -chdir=env init -reconfigure -backend-config=backends/sandbox.hcl
@@ -35,6 +35,10 @@ locals {
 
   mcp_image = var.mcp_image != "" ? var.mcp_image : (
     "${var.region}-docker.pkg.dev/${var.project_id}/${var.artifact_registry_repository_id}/${local.prefix}-mcp:latest"
+  )
+
+  agent_image = var.agent_image != "" ? var.agent_image : (
+    "${var.region}-docker.pkg.dev/${var.project_id}/${var.artifact_registry_repository_id}/${local.prefix}-agent:latest"
   )
 }
 
@@ -103,6 +107,30 @@ module "mcp" {
   deploy_members = [
     "serviceAccount:${var.deploy_sa_email}",
   ]
+}
+
+module "agent" {
+  source = "../modules/agent"
+
+  depends_on = [module.mcp]
+
+  project_id                 = var.project_id
+  prefix                     = local.prefix
+  environment                = var.environment
+  region                     = var.region
+  labels                     = local.common_labels
+  image                      = local.agent_image
+  mcp_endpoint               = module.mcp.mcp_endpoint
+  artifact_registry_location = var.artifact_registry_location
+  artifact_registry_name     = var.artifact_registry_name
+  deploy_members = [
+    "serviceAccount:${var.deploy_sa_email}",
+  ]
+
+  iap_host                = var.agent_iap_host
+  iap_oauth_client_id     = var.iap_oauth_client_id
+  iap_oauth_client_secret = var.iap_oauth_client_secret
+  iap_members             = var.iap_members
 }
 
 module "frontends" {

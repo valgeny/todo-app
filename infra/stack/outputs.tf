@@ -46,3 +46,19 @@ output "workload_identity_provider" {
   value       = module.github_deploy.workload_identity_provider
   description = "WIF provider resource name."
 }
+
+output "iap_oauth_client_id" {
+  value       = var.iap_oauth_client_id
+  description = "IAP OAuth client ID (pass into env tfvars)."
+}
+
+output "iap_oauth_client_secret" {
+  value       = var.iap_oauth_client_secret
+  description = "IAP OAuth client secret (pass into env tfvars)."
+  sensitive   = true
+}
+
+output "iap_members" {
+  value       = var.iap_members
+  description = "IAP accessors (pass into env tfvars)."
+}

@@ -76,3 +76,28 @@ output "mcp_image" {
   value       = local.mcp_image
   description = "MCP container image URI."
 }
+
+output "agent_image" {
+  value       = local.agent_image
+  description = "Agent LangGraph container image URI."
+}
+
+output "agent_cloud_run_uri" {
+  value       = module.agent.cloud_run_uri
+  description = "Internal Cloud Run URL (use agent_iap_url publicly)."
+}
+
+output "agent_iap_url" {
+  value       = module.agent.iap_url
+  description = "Public agent URL behind IAP."
+}
+
+output "agent_iap_ip" {
+  value       = module.agent.iap_ip
+  description = "Global LB IP — point DNS A for agent_iap_host here."
+}
+
+output "agent_service_name" {
+  value       = module.agent.service_name
+  description = "Cloud Run agent service name."
+}
