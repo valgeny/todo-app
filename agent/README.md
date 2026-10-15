@@ -63,10 +63,20 @@ This is separate from the CLI: Studio talks to a local Agent Server that still c
 
 ## Evals
 
-Seed goldens: [`evals/dataset_seed.json`](evals/dataset_seed.json). Needs MCP up + LangSmith key:
+Local goldens live under [`evals/datasets/{name}/examples.json`](evals/datasets/todo-agent-v1/examples.json) (default name `todo-agent-v1`). Inputs use LangGraph-compatible `messages` (required for Studio “Run experiment”); not bare `question`. Needs MCP up + LangSmith key.
 
 ```bash
+# Sync dataset (same name local ↔ remote; full override)
+uv run python evals/sync_dataset.py --name todo-agent-v1 --push --yes   # local wins
+uv run python evals/sync_dataset.py --name todo-agent-v1 --pull --yes   # remote wins
+
+# Run experiment (optional --sync pushes local first)
 uv run python evals/run_eval.py
+uv run python evals/run_eval.py --sync
+
+# Pytest fixture pushes results to LangSmith (skips if env missing)
+uv sync --extra dev
+uv run pytest -m langsmith
 ```
 
 ## Layout
@@ -75,5 +85,6 @@ uv run python evals/run_eval.py
 agent/
   config/             # .env.example, .env.local, .env.local2sandbox (gitignored except example)
   src/todo_agent/     # graph, MCP loader, CLI
-  evals/              # seed dataset + LangSmith runner
+  evals/              # datasets/, sync + LangSmith runner, evaluators
+  tests/              # pytest + LangSmith eval fixture
 ```

@@ -8,6 +8,8 @@ from typing import Any
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage, SystemMessage
 
+from dataset_io import question_from_inputs
+
 
 def _tool_names(trajectory: list[dict[str, Any]] | None) -> list[str]:
     if not trajectory:
@@ -66,7 +68,10 @@ def final_response_judge(run: dict[str, Any], example: dict[str, Any]) -> dict[s
     """Gemini judges whether the answer matches the reference intent (0/1)."""
     reference = (example.get("outputs") or {}).get("reference") or ""
     answer = (run.get("outputs") or {}).get("answer") or ""
-    question = (example.get("inputs") or {}).get("question") or ""
+    try:
+        question = question_from_inputs(example.get("inputs") or {})
+    except ValueError:
+        question = ""
 
     model_id = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
     llm = ChatGoogleGenerativeAI(model=model_id, temperature=0)

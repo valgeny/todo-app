@@ -1,86 +1,72 @@
-"""Upload seed examples (optional) and run a LangSmith experiment."""
+"""Run a LangSmith experiment against a synced dataset."""
 
 from __future__ import annotations
 
-import json
-import os
+import argparse
 import sys
 from pathlib import Path
 
-from dotenv import load_dotenv
 from langsmith import Client
 
 # Allow `uv run python evals/run_eval.py` from agent/
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from todo_agent.graph import run_agent  # noqa: E402
+from dataset_io import (  # noqa: E402
+    DEFAULT_DATASET,
+    ensure_remote_dataset,
+    load_agent_env,
+    push_local_to_remote,
+    question_from_inputs,
+    require_eval_env,
+)
 from evaluators import final_response_judge, trajectory_subsequence  # noqa: E402
-
-DATASET_NAME = "todo-agent-v1"
-SEED_PATH = Path(__file__).with_name("dataset_seed.json")
-
-
-def _load_env() -> None:
-    config = Path(__file__).resolve().parents[1] / "config"
-    load_dotenv(config / ".env")
-    load_dotenv(config / ".env.local")
-    sandbox = config / ".env.local2sandbox"
-    if sandbox.is_file():
-        load_dotenv(sandbox, override=False)
-
-
-def ensure_dataset(client: Client) -> str:
-    rows = json.loads(SEED_PATH.read_text(encoding="utf-8"))
-    existing = {d.name: d for d in client.list_datasets(dataset_name=DATASET_NAME)}
-    if DATASET_NAME not in existing:
-        dataset = client.create_dataset(
-            dataset_name=DATASET_NAME,
-            description="Golden set for the todo LangGraph agent (trajectory + final)",
-        )
-    else:
-        dataset = existing[DATASET_NAME]
-
-    # Idempotent-ish: skip create if examples already present
-    examples = list(client.list_examples(dataset_id=dataset.id))
-    if not examples:
-        client.create_examples(
-            dataset_id=dataset.id,
-            examples=[
-                {
-                    "inputs": row["inputs"],
-                    "outputs": row["outputs"],
-                    "metadata": row.get("metadata") or {},
-                }
-                for row in rows
-            ],
-        )
-    return DATASET_NAME
+from todo_agent.graph import run_agent  # noqa: E402
 
 
 def target(inputs: dict) -> dict:
-    question = inputs["question"]
+    question = question_from_inputs(inputs)
     out = run_agent(question)
     return {"answer": out["answer"], "trajectory": out["trajectory"]}
 
 
-def main() -> None:
-    _load_env()
-    if not os.environ.get("LANGSMITH_API_KEY"):
-        raise SystemExit("Set LANGSMITH_API_KEY in agent/config/.env")
-    if not os.environ.get("TODO_MCP_URL"):
-        raise SystemExit("Set TODO_MCP_URL (MCP Streamable HTTP endpoint)")
-    if not os.environ.get("GOOGLE_API_KEY") and not os.environ.get("GOOGLE_CLOUD_PROJECT"):
-        raise SystemExit("Set GOOGLE_API_KEY or GOOGLE_CLOUD_PROJECT (Vertex ADC)")
+def run_experiment(
+    client: Client,
+    *,
+    dataset_name: str = DEFAULT_DATASET,
+    sync_local: bool = False,
+    experiment_prefix: str = "todo-agent",
+    max_concurrency: int = 2,
+):
+    """Evaluate against a LangSmith dataset; results are pushed to LangSmith."""
+    if sync_local:
+        push_local_to_remote(client, dataset_name)
+    else:
+        ensure_remote_dataset(client, dataset_name)
 
-    client = Client()
-    dataset_name = ensure_dataset(client)
-    results = client.evaluate(
+    return client.evaluate(
         target,
         data=dataset_name,
         evaluators=[trajectory_subsequence, final_response_judge],
-        experiment_prefix="todo-agent",
-        max_concurrency=2,
+        experiment_prefix=experiment_prefix,
+        max_concurrency=max_concurrency,
     )
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Run LangSmith eval experiment")
+    parser.add_argument("--name", default=DEFAULT_DATASET, help="Dataset name")
+    parser.add_argument(
+        "--sync",
+        action="store_true",
+        help="Push local examples.json to remote before evaluating (full override)",
+    )
+    args = parser.parse_args()
+
+    load_agent_env()
+    require_eval_env()
+    client = Client()
+    results = run_experiment(client, dataset_name=args.name, sync_local=args.sync)
     print(results)
     print("Open the experiment in LangSmith to inspect scores.")
 
