@@ -23,6 +23,7 @@ from dataset_io import (  # noqa: E402
 from evaluators import (  # noqa: E402
     answer_min_chars,
     final_response_judge,
+    intent_satisfied,
     trajectory_llm_judge,
     trajectory_subsequence,
 )
@@ -32,7 +33,8 @@ DEFAULT_EVALUATORS = [
     answer_min_chars,  # static: answer length
     trajectory_subsequence,  # static: tool subsequence + args
     trajectory_llm_judge,  # LLM: tool-calling / trajectory
-    final_response_judge,  # LLM: final answer
+    intent_satisfied,  # LLM: polarity-aware intent (metadata.expect)
+    final_response_judge,  # LLM: final answer (also polarity-aware)
 ]
 
 

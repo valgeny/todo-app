@@ -75,7 +75,8 @@ uv run python evals/run_eval.py
 uv run python evals/run_eval.py --sync
 
 # Feedback keys: answer_min_chars, trajectory_subsequence (static);
-#                trajectory_llm_judge, final_response_judge (LLM / Vertex ADC).
+#   trajectory_llm_judge, intent_satisfied, final_response_judge (LLM / Vertex ADC).
+# Dataset metadata.expect: "positive" | "negative" (refuse / out-of-scope cases).
 # Optional: EVAL_MIN_ANSWER_CHARS=20
 
 # Pytest fixture pushes results to LangSmith (skips if env missing)

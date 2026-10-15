@@ -151,10 +151,81 @@ def trajectory_llm_judge(run: Any, example: Any) -> dict[str, Any]:
     return {"key": "trajectory_llm_judge", "score": score, "comment": comment}
 
 
+def _expect_polarity(example_map: dict[str, Any]) -> str:
+    """positive | negative from metadata.expect (default positive)."""
+    meta = example_map.get("metadata") or {}
+    expect = str(meta.get("expect") or "positive").strip().lower()
+    if expect in {"negative", "neg", "refuse", "reject"}:
+        return "negative"
+    return "positive"
+
+
+def intent_satisfied(run: Any, example: Any) -> dict[str, Any]:
+    """
+    LLM-as-judge for intent success, polarity-aware via metadata.expect:
+      positive — fulfill the todo request (tools + useful answer)
+      negative — refuse / stay in scope (no todo tools when none expected)
+    """
+    example_map = _as_mapping(example)
+    run_map = _as_mapping(run)
+    polarity = _expect_polarity(example_map)
+    reference = (example_map.get("outputs") or {}).get("reference") or ""
+    expected_traj = (example_map.get("outputs") or {}).get("trajectory") or []
+    answer = (run_map.get("outputs") or {}).get("answer") or ""
+    actual_traj = (run_map.get("outputs") or {}).get("trajectory") or []
+    try:
+        question = question_from_inputs(example_map.get("inputs") or {})
+    except ValueError:
+        question = ""
+
+    if polarity == "negative":
+        system = (
+            "You grade a NEGATIVE test case for a todo-only assistant. "
+            "Reply with ONLY PASS or FAIL.\n"
+            "PASS if the assistant correctly refuses or stays out of scope "
+            "(does not pretend to complete an off-topic task with todo tools).\n"
+            "FAIL if it calls todo tools unnecessarily or fully answers as if it were a general assistant "
+            "when the reference says it should decline."
+        )
+    else:
+        system = (
+            "You grade a POSITIVE test case for a todo assistant. "
+            "Reply with ONLY PASS or FAIL.\n"
+            "PASS if the assistant's tools and answer reasonably fulfill the user's todo intent "
+            "given the reference.\n"
+            "FAIL if it refuses, misses the task, or produces an empty/wrong result."
+        )
+
+    llm = _build_llm()
+    verdict = llm.invoke(
+        [
+            SystemMessage(content=system),
+            HumanMessage(
+                content=(
+                    f"Expect polarity: {polarity}\n"
+                    f"Question: {question}\n"
+                    f"Reference intent: {reference}\n"
+                    f"Expected trajectory JSON: {json.dumps(expected_traj)}\n"
+                    f"Actual trajectory JSON: {json.dumps(actual_traj)}\n"
+                    f"Assistant answer: {answer}\n"
+                )
+            ),
+        ]
+    )
+    text = verdict.content if isinstance(verdict.content, str) else str(verdict.content)
+    score, comment = _pass_fail_score(text)
+    return {
+        "key": "intent_satisfied",
+        "score": score,
+        "comment": f"expect={polarity}; {comment}",
+    }
+
+
 def final_response_judge(run: Any, example: Any) -> dict[str, Any]:
     """LLM-as-judge: does the final answer match the reference intent?"""
     example_map = _as_mapping(example)
     run_map = _as_mapping(run)
+    polarity = _expect_polarity(example_map)
     reference = (example_map.get("outputs") or {}).get("reference") or ""
     answer = (run_map.get("outputs") or {}).get("answer") or ""
     try:
@@ -162,18 +233,26 @@ def final_response_judge(run: Any, example: Any) -> dict[str, Any]:
     except ValueError:
         question = ""
 
+    if polarity == "negative":
+        system = (
+            "You grade a NEGATIVE-case reply. Reply with ONLY PASS or FAIL.\n"
+            "PASS if the answer declines or stays scoped to todos (per reference).\n"
+            "FAIL if it fully answers the off-topic question as a general assistant."
+        )
+    else:
+        system = (
+            "You grade a POSITIVE-case reply. Reply with ONLY PASS or FAIL.\n"
+            "PASS if the answer reasonably satisfies the user question given the reference intent.\n"
+            "FAIL if it is wrong, empty, refuses, or ignores the task."
+        )
+
     llm = _build_llm()
     verdict = llm.invoke(
         [
-            SystemMessage(
-                content=(
-                    "You grade a todo-assistant reply. Reply with ONLY PASS or FAIL.\n"
-                    "PASS if the answer reasonably satisfies the user question given the reference intent.\n"
-                    "FAIL if it is wrong, empty, or ignores the task."
-                )
-            ),
+            SystemMessage(content=system),
             HumanMessage(
                 content=(
+                    f"Expect polarity: {polarity}\n"
                     f"Question: {question}\n"
                     f"Reference intent: {reference}\n"
                     f"Assistant answer: {answer}\n"
@@ -183,4 +262,4 @@ def final_response_judge(run: Any, example: Any) -> dict[str, Any]:
     )
     text = verdict.content if isinstance(verdict.content, str) else str(verdict.content)
     score, comment = _pass_fail_score(text)
-    return {"key": "final_response_judge", "score": score, "comment": comment}
+    return {"key": "final_response_judge", "score": score, "comment": f"expect={polarity}; {comment}"}

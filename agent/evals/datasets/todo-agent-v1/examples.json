@@ -10,7 +10,11 @@
       "reference": "A short summary of incomplete todos from the API (titles and ids).",
       "trajectory": [{ "tool": "list_todos", "args": { "status": "incomplete" } }]
     },
-    "metadata": { "slice": "trajectory", "local_id": "list-incomplete" }
+    "metadata": {
+      "slice": "trajectory",
+      "local_id": "list-incomplete",
+      "expect": "positive"
+    }
   },
   {
     "id": "list-all",
@@ -23,7 +27,11 @@
       "reference": "Lists todos (any status) returned by the API.",
       "trajectory": [{ "tool": "list_todos", "args": { "status": "all" } }]
     },
-    "metadata": { "slice": "trajectory", "local_id": "list-all" }
+    "metadata": {
+      "slice": "trajectory",
+      "local_id": "list-all",
+      "expect": "positive"
+    }
   },
   {
     "id": "create-milk",
@@ -36,7 +44,11 @@
       "reference": "Confirms creation of a todo titled Buy milk and includes its todoId.",
       "trajectory": [{ "tool": "create_todo", "args": { "title": "Buy milk" } }]
     },
-    "metadata": { "slice": "trajectory", "local_id": "create-milk" }
+    "metadata": {
+      "slice": "trajectory",
+      "local_id": "create-milk",
+      "expect": "positive"
+    }
   },
   {
     "id": "create-with-due",
@@ -54,7 +66,11 @@
         }
       ]
     },
-    "metadata": { "slice": "trajectory", "local_id": "create-with-due" }
+    "metadata": {
+      "slice": "trajectory",
+      "local_id": "create-with-due",
+      "expect": "positive"
+    }
   },
   {
     "id": "list-overdue",
@@ -67,7 +83,11 @@
       "reference": "Reports overdue items from list_todos with status overdue.",
       "trajectory": [{ "tool": "list_todos", "args": { "status": "overdue" } }]
     },
-    "metadata": { "slice": "trajectory", "local_id": "list-overdue" }
+    "metadata": {
+      "slice": "trajectory",
+      "local_id": "list-overdue",
+      "expect": "positive"
+    }
   },
   {
     "id": "refuse-non-todo",
@@ -80,6 +100,10 @@
       "reference": "Declines or briefly answers without calling todo tools, or explains it only handles todos.",
       "trajectory": []
     },
-    "metadata": { "slice": "final", "local_id": "refuse-non-todo" }
+    "metadata": {
+      "slice": "final",
+      "local_id": "refuse-non-todo",
+      "expect": "negative"
+    }
   }
 ]
