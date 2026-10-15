@@ -20,8 +20,20 @@ from dataset_io import (  # noqa: E402
     question_from_inputs,
     require_eval_env,
 )
-from evaluators import final_response_judge, trajectory_subsequence  # noqa: E402
+from evaluators import (  # noqa: E402
+    answer_min_chars,
+    final_response_judge,
+    trajectory_llm_judge,
+    trajectory_subsequence,
+)
 from todo_agent.graph import run_agent  # noqa: E402
+
+DEFAULT_EVALUATORS = [
+    answer_min_chars,  # static: answer length
+    trajectory_subsequence,  # static: tool subsequence + args
+    trajectory_llm_judge,  # LLM: tool-calling / trajectory
+    final_response_judge,  # LLM: final answer
+]
 
 
 def target(inputs: dict) -> dict:
@@ -47,7 +59,7 @@ def run_experiment(
     return client.evaluate(
         target,
         data=dataset_name,
-        evaluators=[trajectory_subsequence, final_response_judge],
+        evaluators=DEFAULT_EVALUATORS,
         experiment_prefix=experiment_prefix,
         max_concurrency=max_concurrency,
     )

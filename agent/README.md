@@ -9,7 +9,7 @@ Programmatic agent over the To-Do List **MCP** server (Streamable HTTP). No chat
 | Orchestration | LangGraph (`create_react_agent`) |
 | LLM | Gemini via `langchain-google-genai` (API key or Vertex ADC) |
 | Tools | MCP `tools/list` via `langchain-mcp-adapters` → `TODO_MCP_URL` |
-| Evals | LangSmith datasets + trajectory / final-response evaluators |
+| Evals | LangSmith datasets + static + LLM-as-judge evaluators |
 
 ## Setup
 
@@ -73,6 +73,10 @@ uv run python evals/sync_dataset.py --name todo-agent-v1 --pull --yes   # remote
 # Run experiment (optional --sync pushes local first)
 uv run python evals/run_eval.py
 uv run python evals/run_eval.py --sync
+
+# Feedback keys: answer_min_chars, trajectory_subsequence (static);
+#                trajectory_llm_judge, final_response_judge (LLM / Vertex ADC).
+# Optional: EVAL_MIN_ANSWER_CHARS=20
 
 # Pytest fixture pushes results to LangSmith (skips if env missing)
 uv sync --extra dev

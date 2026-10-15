@@ -1,13 +1,18 @@
-"""Offline evaluators: trajectory match + final-answer LLM judge."""
+"""Offline evaluators: static checks + trajectory / final-answer LLM judges."""
 
 from __future__ import annotations
 
+import json
+import os
 from typing import Any
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from dataset_io import question_from_inputs
 from todo_agent.graph import _build_llm
+
+# Static floor for a non-empty assistant reply (override with EVAL_MIN_ANSWER_CHARS).
+DEFAULT_MIN_ANSWER_CHARS = 20
 
 
 def _as_mapping(obj: Any) -> dict[str, Any]:
@@ -32,9 +37,36 @@ def _tool_names(trajectory: list[dict[str, Any]] | None) -> list[str]:
     return [str(step.get("tool") or "") for step in trajectory]
 
 
+def _pass_fail_score(text: str) -> tuple[float, str]:
+    upper = text.upper()
+    if "FAIL" in upper and upper.strip().startswith("FAIL"):
+        return 0.0, text[:200]
+    if "PASS" in upper:
+        return 1.0, text[:200]
+    return 0.0, text[:200]
+
+
+def answer_min_chars(run: Any, example: Any) -> dict[str, Any]:
+    """
+    Static check: assistant answer length >= EVAL_MIN_ANSWER_CHARS (default 20).
+    Score 1.0 if long enough, else 0.0.
+    """
+    del example  # unused; signature matches LangSmith evaluators
+    run_map = _as_mapping(run)
+    answer = str((run_map.get("outputs") or {}).get("answer") or "")
+    minimum = int(os.environ.get("EVAL_MIN_ANSWER_CHARS", DEFAULT_MIN_ANSWER_CHARS))
+    length = len(answer.strip())
+    score = 1.0 if length >= minimum else 0.0
+    return {
+        "key": "answer_min_chars",
+        "score": score,
+        "comment": f"len={length} min={minimum}",
+    }
+
+
 def trajectory_subsequence(run: Any, example: Any) -> dict[str, Any]:
     """
-    Pass if expected tool names appear in order as a subsequence of actual calls.
+    Static check: expected tool names appear in order as a subsequence of actual calls.
     Arg equality is best-effort for keys present on the expected step.
     """
     example_map = _as_mapping(example)
@@ -56,7 +88,6 @@ def trajectory_subsequence(run: Any, example: Any) -> dict[str, Any]:
 
     args_ok = True
     if name_ok:
-        # Align expected steps to first matching occurrences
         j = 0
         for step in actual:
             if j >= len(expected):
@@ -81,8 +112,47 @@ def trajectory_subsequence(run: Any, example: Any) -> dict[str, Any]:
     }
 
 
+def trajectory_llm_judge(run: Any, example: Any) -> dict[str, Any]:
+    """LLM-as-judge: did tool calls match the expected trajectory / task?"""
+    example_map = _as_mapping(example)
+    run_map = _as_mapping(run)
+    expected = (example_map.get("outputs") or {}).get("trajectory") or []
+    actual = (run_map.get("outputs") or {}).get("trajectory") or []
+    reference = (example_map.get("outputs") or {}).get("reference") or ""
+    try:
+        question = question_from_inputs(example_map.get("inputs") or {})
+    except ValueError:
+        question = ""
+
+    llm = _build_llm()
+    verdict = llm.invoke(
+        [
+            SystemMessage(
+                content=(
+                    "You grade a todo-assistant's tool-calling trajectory. "
+                    "Reply with ONLY PASS or FAIL.\n"
+                    "PASS if the tools called (names and key args) reasonably match the expected "
+                    "trajectory for the question. Extra harmless tools may be OK; missing required "
+                    "tools or wrong args are FAIL. Empty expected trajectory means no tools should run."
+                )
+            ),
+            HumanMessage(
+                content=(
+                    f"Question: {question}\n"
+                    f"Reference intent: {reference}\n"
+                    f"Expected trajectory JSON: {json.dumps(expected)}\n"
+                    f"Actual trajectory JSON: {json.dumps(actual)}\n"
+                )
+            ),
+        ]
+    )
+    text = verdict.content if isinstance(verdict.content, str) else str(verdict.content)
+    score, comment = _pass_fail_score(text)
+    return {"key": "trajectory_llm_judge", "score": score, "comment": comment}
+
+
 def final_response_judge(run: Any, example: Any) -> dict[str, Any]:
-    """Gemini judges whether the answer matches the reference intent (0/1)."""
+    """LLM-as-judge: does the final answer match the reference intent?"""
     example_map = _as_mapping(example)
     run_map = _as_mapping(run)
     reference = (example_map.get("outputs") or {}).get("reference") or ""
@@ -92,7 +162,7 @@ def final_response_judge(run: Any, example: Any) -> dict[str, Any]:
     except ValueError:
         question = ""
 
-    llm = _build_llm()  # API key or Vertex + ADC (same as agent)
+    llm = _build_llm()
     verdict = llm.invoke(
         [
             SystemMessage(
@@ -111,11 +181,6 @@ def final_response_judge(run: Any, example: Any) -> dict[str, Any]:
             ),
         ]
     )
-    text = (verdict.content if isinstance(verdict.content, str) else str(verdict.content)).upper()
-    if "FAIL" in text and text.strip().startswith("FAIL"):
-        score = 0.0
-    elif "PASS" in text:
-        score = 1.0
-    else:
-        score = 0.0
-    return {"key": "final_response_judge", "score": score, "comment": text[:200]}
+    text = verdict.content if isinstance(verdict.content, str) else str(verdict.content)
+    score, comment = _pass_fail_score(text)
+    return {"key": "final_response_judge", "score": score, "comment": comment}
