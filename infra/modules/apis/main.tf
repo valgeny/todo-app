@@ -1,13 +1,14 @@
 # -----------------------------------------------------------------------------
-# modules/apis — Cloud Run API (SQLite) + runtime SA + secret accessor + AR reader
+# modules/apis — Cloud Run API + runtime SA + secret accessor + AR reader
 #
 # Non-secret config = plain env (defaults in variables.tf).
-# Secrets = Secret Manager via secret_resources.
-# Caveat: SQLite on Cloud Run is ephemeral (lost on scale-to-zero / replace).
+# Secrets = Secret Manager via secret_resources (e.g. DB_PASSWORD, CORS_ORIGINS).
+# Postgres: mount Cloud SQL Unix sockets at /cloudsql; set DB_HOST to that path.
 # -----------------------------------------------------------------------------
 
 locals {
   # Do not set PORT — Cloud Run reserves it and injects the container port.
+  # App envs always use Postgres (DB_* set from root).
   plain_env = {
     APP_ENV     = var.app_env
     ENVIRONMENT = var.environment
@@ -15,6 +16,9 @@ locals {
     LOG_FORMAT  = var.log_format
     DB_DIALECT  = var.db_dialect
     DB_NAME     = var.db_name
+    DB_HOST     = var.db_host
+    DB_PORT     = tostring(var.db_port)
+    DB_USER     = var.db_user
   }
 }
 
@@ -70,11 +74,29 @@ resource "google_cloud_run_v2_service" "api" {
       max_instance_count = 1
     }
 
+    dynamic "volumes" {
+      for_each = length(var.cloud_sql_instances) > 0 ? [1] : []
+      content {
+        name = "cloudsql"
+        cloud_sql_instance {
+          instances = var.cloud_sql_instances
+        }
+      }
+    }
+
     containers {
       image = var.image
 
       ports {
         container_port = var.port
+      }
+
+      dynamic "volume_mounts" {
+        for_each = length(var.cloud_sql_instances) > 0 ? [1] : []
+        content {
+          name       = "cloudsql"
+          mount_path = "/cloudsql"
+        }
       }
 
       dynamic "env" {

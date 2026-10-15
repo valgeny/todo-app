@@ -83,12 +83,33 @@ variable "log_format" {
 
 variable "db_dialect" {
   type        = string
-  description = "DB_DIALECT (sqlite for this stack)."
+  description = "DB_DIALECT (sqlite | postgres)."
   default     = "sqlite"
 }
 
 variable "db_name" {
   type        = string
-  description = "DB_NAME (sqlite file path inside the container)."
+  description = "DB_NAME (sqlite path or postgres database name)."
   default     = "data/todo.sqlite"
+}
+
+variable "db_host" {
+  type        = string
+  description = "DB_HOST (Cloud SQL Unix socket path)."
+}
+
+variable "db_port" {
+  type        = number
+  description = "DB_PORT (5432)."
+}
+
+variable "db_user" {
+  type        = string
+  description = "DB_USER."
+}
+
+variable "cloud_sql_instances" {
+  type        = list(string)
+  description = "Cloud SQL instance connection names to mount at /cloudsql."
+  default     = []
 }

@@ -15,7 +15,7 @@ Branch previews: `https://valgeny.github.io/todo-app/<branch>/redoc/latest/`.
 - **Layers:** `main` → `createApp` → routers → controllers (`validation` + `handler`) → `todoService` → TypeORM `Todo` entity.
 - **Validation:** Zod schemas live with the model and controllers. Types use `z.infer`. A small `validate` middleware binds schemas to each route.
 - **OpenAPI:** The same Zod schemas drive the OpenAPI document via `z.toJSONSchema` / controller `openapi` metadata (`server/src/openapi/`). Schema is the source of truth; the Redoc site is generated from it.
-- **Persistence:** TypeORM 1.x `DataSource`. `DB_DIALECT=mssql` or `sqlite` (`better-sqlite3`). Active Record (`Todo.create` / `find` / `save`). `synchronize: true` creates the `todo` table.
+- **Persistence:** TypeORM `DataSource`. `DB_DIALECT=postgres` or `sqlite` (`better-sqlite3` / `pg`). Active Record (`Todo.create` / `find` / `save`). `synchronize: true` creates the `todo` table.
 - **Errors:** Shared `BaseError` types → HTTP status (400 validation, 404 missing entity/route, 500 unexpected).
 
 ## Contract
@@ -77,6 +77,6 @@ The collection includes status-code tests. Use **Run collection** to walk throug
 
 ## Trade-offs
 
-- Example config uses SQLite so a checkout runs without SQL Server. Docker uses SQL Server. Tests use SQLite via `server/config/.env.test`.
+- Example config uses SQLite so a checkout runs without Postgres. Docker Compose uses Postgres 16. Cloud Run uses Cloud SQL Postgres. Tests use SQLite via `server/config/.env.test`.
 - Create returns 201 and delete returns 204 (REST), rather than a 200-for-everything pattern.
 - Express 5, TypeORM 1.x (`DataSource`), Biome for lint/format.

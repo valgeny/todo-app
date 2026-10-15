@@ -2,10 +2,8 @@
 # variables.tf — Input variables for the todo-app GCP stack
 #
 # Required: project_id, environment
-# Optional: region, name_prefix, image, create_frontend_bucket, secret_env
-#
-# Env-specific values live under envs/ (e.g. envs/sandbox.tfvars).
-# Resource names use: {name_prefix}-{environment}-…  (e.g. todo-sandbox-api)
+# Env-specific values: envs/{nonprod,sandbox,staging,prod}.tfvars
+# Use a matching backends/*.hcl so each env has its own local state.
 # -----------------------------------------------------------------------------
 
 variable "project_id" {
@@ -16,50 +14,49 @@ variable "project_id" {
 variable "environment" {
   type        = string
   description = <<-EOT
-    Deployment environment. Drives resource names, labels, and Cloud Run
-    ENVIRONMENT. Allowed: sandbox | staging | prod.
+    nonprod  — Cloud SQL instance only (todo-nonprod-pg); apply once before sandbox/staging
+    sandbox | staging — app stack + logical DB on todo-nonprod-pg
+    prod — own Cloud SQL (todo-prod-pg) + app stack
   EOT
 
   validation {
-    condition     = contains(["sandbox", "staging", "prod"], var.environment)
-    error_message = "environment must be one of: sandbox, staging, prod."
+    condition     = contains(["nonprod", "sandbox", "staging", "prod"], var.environment)
+    error_message = "environment must be one of: nonprod, sandbox, staging, prod."
   }
 }
 
 variable "region" {
   type        = string
-  description = "Region for Artifact Registry, Cloud Run, and the optional FE bucket."
+  description = "Region for Artifact Registry, Cloud Run, Cloud SQL, and the optional FE bucket."
   default     = "us-central1"
 }
 
 variable "name_prefix" {
   type        = string
-  description = "Base name prefix; combined with environment as {name_prefix}-{environment}."
+  description = "Base name prefix (instances: {prefix}-nonprod-pg / {prefix}-prod-pg; apps: {prefix}-{env}-…)."
   default     = "todo"
 }
 
 variable "image" {
   type        = string
   description = <<-EOT
-    Full container image URI for the API (Artifact Registry).
-    Leave empty on first apply to use the default …/{prefix}-api:latest path;
-    build/push that image, then re-apply or gcloud run deploy.
+    Full container image URI for the API (Artifact Registry). Ignored for nonprod.
+    Leave empty to use the default …/{prefix}-api:latest path.
   EOT
   default     = ""
 }
 
 variable "create_frontend_bucket" {
   type        = bool
-  description = "Create a public GCS bucket for static web hosting (no HTTPS load balancer)."
+  description = "Create a public GCS bucket for static web hosting (app envs only)."
   default     = true
 }
 
 variable "secret_env" {
   type        = map(string)
   description = <<-EOT
-    Extra sensitive env vars stored in Secret Manager and injected into Cloud Run
-    (key = env name, value = secret data). CORS_ORIGINS is always managed.
-    Example when adding Cloud SQL later: { DB_PASSWORD = "…", DB_USER = "todo" }.
+    Extra sensitive env vars for app envs (Secret Manager). CORS_ORIGINS and
+    DB_PASSWORD are managed automatically — do not set DB_PASSWORD here.
   EOT
   sensitive   = true
   default     = {}
@@ -67,7 +64,7 @@ variable "secret_env" {
 
 variable "github_repository" {
   type        = string
-  description = "GitHub repository (owner/name) allowed to deploy via Workload Identity Federation."
+  description = "GitHub repository (owner/name) for WIF deploy (app envs only)."
   default     = "valgeny/todo-app"
 }
 

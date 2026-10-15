@@ -42,7 +42,7 @@ Playwright e2e installs Chromium on first run (`yarn playwright install --with-d
 
 ## What not to expect
 
-- **SQL Server / `docker compose`** — not the Codespaces path. Prefer SQLite here; use [Quick start](getting-started.md) Docker steps on a machine with Docker Desktop.
+- **Postgres / `docker compose`** — not the Codespaces path. Prefer SQLite here; use [Quick start](getting-started.md) Docker steps on a machine with Docker Desktop.
 - **Shared state** — your Codespace does not share data with someone else’s.
 
 ## Related
