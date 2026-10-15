@@ -23,9 +23,7 @@ github_repository      = "valgeny/todo-app"
 # mcp_image = "us-central1-docker.pkg.dev/your-gcp-project-id/todo-sandbox-api/todo-sandbox-mcp:latest"
 
 # Extra Secret Manager → Cloud Run env (CORS_ORIGINS is always managed).
-# When you add Cloud SQL later:
-# secret_env = {
-#   DB_PASSWORD = "change-me"
-#   DB_USER     = "todo"
-# }
+# See envs/*.tfvars.example — use backends/*.hcl for per-env state.
+# nonprod first (todo-nonprod-pg), then sandbox/staging; prod is separate.
+# secret_env = {}
 secret_env = {}

@@ -2,7 +2,7 @@ import type { Application } from 'express';
 import type { DataSource } from 'typeorm';
 import { createApp } from '@/app';
 import { config } from '@/config';
-import { closeDb, createDataSource } from '@/providers/db';
+import { closeDb, createDataSource } from '@/storage';
 
 export const baseUrl = `http://localhost:${config.port}`;
 export const loopbackUrl = `http://127.0.0.1:${config.port}`;

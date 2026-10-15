@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { after, beforeEach, describe, it } from 'node:test';
 import { NotFoundError } from '@/errors';
-import { closeDb, createDataSource, initDb } from '@/providers/db';
+import { closeDb, createDataSource, initDb } from '@/storage';
 import {
   createTodo,
   deleteTodo,

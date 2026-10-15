@@ -1,0 +1,17 @@
+# -----------------------------------------------------------------------------
+# envs/prod.tfvars.example — production (own Cloud SQL instance)
+#
+#   terraform init -reconfigure -backend-config=backends/prod.hcl
+#   terraform apply -var-file=envs/prod.tfvars
+#
+# Creates: todo-prod-pg + DB todo_prod + API/MCP/FE.
+# -----------------------------------------------------------------------------
+
+project_id  = "your-gcp-project-id"
+environment = "prod"
+region      = "us-central1"
+name_prefix = "todo"
+
+create_frontend_bucket = true
+github_repository      = "valgeny/todo-app"
+secret_env             = {}

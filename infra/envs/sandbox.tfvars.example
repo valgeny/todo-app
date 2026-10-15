@@ -1,11 +1,12 @@
 # -----------------------------------------------------------------------------
-# envs/sandbox.tfvars.example — sandbox environment inputs
+# envs/sandbox.tfvars.example — sandbox app stack
 #
-# Copy to sandbox.tfvars (gitignored) and set project_id:
-#   cp envs/sandbox.tfvars.example envs/sandbox.tfvars
+# Requires nonprod Cloud SQL (todo-nonprod-pg) already applied.
+#
+#   terraform init -reconfigure -backend-config=backends/sandbox.hcl
 #   terraform apply -var-file=envs/sandbox.tfvars
 #
-# Creates resources prefixed todo-sandbox-* in the given GCP project.
+# Creates: DB todo_sandbox on todo-nonprod-pg + API/MCP/FE (todo-sandbox-*).
 # -----------------------------------------------------------------------------
 
 project_id  = "your-gcp-project-id"
@@ -13,16 +14,9 @@ environment = "sandbox"
 region      = "us-central1"
 name_prefix = "todo"
 
-# After first apply creates Artifact Registry, build/push then set:
-# image = "us-central1-docker.pkg.dev/your-gcp-project-id/todo-sandbox-api/todo-sandbox-api:latest"
-
 create_frontend_bucket = true
 
-# After first apply creates Artifact Registry, build/push then set:
-# mcp_image = "us-central1-docker.pkg.dev/your-gcp-project-id/todo-sandbox-api/todo-sandbox-mcp:latest"
-
-# GitHub repo allowed to impersonate gh-deploy-<env> via WIF (no JSON keys).
 github_repository = "valgeny/todo-app"
 
-# Extra Secret Manager → Cloud Run env (CORS_ORIGINS is always managed).
+# CORS_ORIGINS + DB_PASSWORD are managed; do not set DB_PASSWORD here.
 secret_env = {}

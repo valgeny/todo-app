@@ -38,7 +38,7 @@ CI also uploads Allure and Playwright HTML as downloadable Actions artifacts (14
 
 **Platform**
 
-- Local SQLite or Docker SQL Server (`todo-db` + API image)
+- Local SQLite or Docker Postgres (`todo-db` + API image); Cloud Run uses Cloud SQL Postgres per env
 - GitHub Codespaces / devcontainer
 - MCP server (`yarn mcp`) — curated tools over the REST API ([docs](docs/mcp.md))
 - Biome lint/format; Node 24; Yarn classic workspaces

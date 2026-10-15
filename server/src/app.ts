@@ -5,7 +5,7 @@ import type { DataSource } from 'typeorm';
 import { config } from './config';
 import { globalErrorHandler, HttpError, httpErrorTransformer } from './errors';
 import { logger } from './logger';
-import { initDb } from './providers/db';
+import { initDb } from '@/storage';
 import todoRouter from './routers/todoRouter';
 import { security } from './security';
 

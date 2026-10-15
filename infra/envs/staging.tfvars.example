@@ -1,0 +1,16 @@
+# -----------------------------------------------------------------------------
+# envs/staging.tfvars.example — staging app stack (shares todo-nonprod-pg)
+#
+# Requires nonprod apply first.
+#   terraform init -reconfigure -backend-config=backends/staging.hcl
+#   terraform apply -var-file=envs/staging.tfvars
+# -----------------------------------------------------------------------------
+
+project_id  = "your-gcp-project-id"
+environment = "staging"
+region      = "us-central1"
+name_prefix = "todo"
+
+create_frontend_bucket = true
+github_repository      = "valgeny/todo-app"
+secret_env             = {}

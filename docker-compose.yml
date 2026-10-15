@@ -1,30 +1,42 @@
 services:
   todo-db:
-    build:
-      context: ./database
-    platform: linux/amd64
+    image: postgres:16-alpine
     ports:
-      - '1433:1433'
-    env_file:
-      - ./server/config/.env.docker
+      - '5432:5432'
+    environment:
+      POSTGRES_DB: todo
+      POSTGRES_USER: todo
+      POSTGRES_PASSWORD: todo
     healthcheck:
-      test:
-        [
-          'CMD-SHELL',
-          '/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "$$SA_PASSWORD" -Q "SELECT 1" || exit 1'
-        ]
-      interval: 10s
+      test: ['CMD-SHELL', 'pg_isready -U todo -d todo']
+      interval: 5s
       timeout: 5s
-      retries: 12
-      start_period: 20s
+      retries: 10
+      start_period: 5s
+    volumes:
+      - todo-pg-data:/var/lib/postgresql/data
+
   app:
     build:
       context: .
       dockerfile: server/Dockerfile
     ports:
       - '8080:8080'
-    env_file:
-      - ./server/config/.env.docker
+    environment:
+      APP_ENV: docker
+      PORT: '8080'
+      HOST: 0.0.0.0
+      LOG_FORMAT: tiny
+      DB_DIALECT: postgres
+      DB_HOST: todo-db
+      DB_PORT: '5432'
+      DB_USER: todo
+      DB_PASSWORD: todo
+      DB_NAME: todo
+      CORS_ORIGINS: localhost,127.0.0.1
     depends_on:
       todo-db:
         condition: service_healthy
+
+volumes:
+  todo-pg-data:
