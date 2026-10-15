@@ -1,10 +1,12 @@
 # -----------------------------------------------------------------------------
-# envs/prod.tfvars.example — production (own Cloud SQL instance)
+# envs/prod.tfvars.example — production app env
 #
-#   terraform init -reconfigure -backend-config=backends/prod.hcl
-#   terraform apply -var-file=envs/prod.tfvars
+# Same GCP project as nonprod: point at nonprod stack outputs (shared SQL/AR/WIF).
+# Dedicated prod GCP project: apply stack with backends/prod.hcl first, then use
+# todo-prod-* outputs below.
 #
-# Creates: todo-prod-pg + DB todo_prod + API/MCP/FE.
+#   terraform -chdir=env init -reconfigure -backend-config=backends/prod.hcl
+#   terraform -chdir=env apply -var-file=../envs/prod.tfvars
 # -----------------------------------------------------------------------------
 
 project_id  = "your-gcp-project-id"
@@ -12,6 +14,12 @@ environment = "prod"
 region      = "us-central1"
 name_prefix = "todo"
 
-create_frontend_bucket = true
-github_repository      = "valgeny/todo-app"
-secret_env             = {}
+# Same-project: nonprod stack outputs. Dedicated prod project: todo-prod-* instead.
+sql_instance_name               = "todo-nonprod-pg"
+sql_connection_name             = "your-gcp-project-id:us-central1:todo-nonprod-pg"
+artifact_registry_repository_id = "todo-nonprod-api"
+artifact_registry_location      = "us-central1"
+artifact_registry_name          = "todo-nonprod-api"
+deploy_sa_email                 = "gh-deploy-nonprod@your-gcp-project-id.iam.gserviceaccount.com"
+
+secret_env = {}

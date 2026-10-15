@@ -34,7 +34,7 @@ Those jobs run only when `github.event_name == 'push'`. The `github-pages` envir
 
 ## Deploy GCP (Cloud Run API + MCP + FE bucket)
 
-Workflow: `.github/workflows/deploy-gcp.yml`. Targets the **sandbox** stack (`todo-sandbox-*`). Infra is applied locally with `envs/sandbox.tfvars` ([infra/README.md](../infra/README.md)).
+Workflow: `.github/workflows/deploy-gcp.yml`. Targets the **sandbox** env (`todo-sandbox-*`). Infra: apply **`stack/`** (nonprod) once, then **`env/`** with `envs/sandbox.tfvars` ([infra/README.md](../infra/README.md)).
 
 Jobs (API and MCP run **in parallel**; FE waits on API):
 
@@ -48,23 +48,29 @@ Auth is **Workload Identity Federation** on every job (no JSON key).
 
 ### One-time GitHub / GCP setup
 
-1. Apply Terraform (creates SA + WIF pool/provider + IAM + optional MCP service):
+1. Apply **stack** (nonprod), then **env** (sandbox):
 
 ```bash
 cd infra
-terraform apply -var-file=envs/sandbox.tfvars
-terraform output -raw workload_identity_provider
-terraform output -raw github_deploy_sa_email
-terraform output -raw mcp_endpoint
+terraform -chdir=stack init -reconfigure -backend-config=backends/nonprod.hcl
+terraform -chdir=stack apply -var-file=../envs/nonprod.tfvars
+terraform -chdir=stack output -raw workload_identity_provider
+terraform -chdir=stack output -raw github_deploy_sa_email
+terraform -chdir=stack output -raw artifact_registry_repo
+
+terraform -chdir=env init -reconfigure -backend-config=backends/sandbox.hcl
+terraform -chdir=env apply -var-file=../envs/sandbox.tfvars
+terraform -chdir=env output -raw mcp_endpoint
 ```
 
 2. Repo **Settings → Environments → `sandbox` → Variables** (or `gh variable set --env sandbox`):
 
 | Variable | Sandbox value |
 | --- | --- |
-| `GCP_WORKLOAD_IDENTITY_PROVIDER` | `terraform output -raw workload_identity_provider` |
-| `GCP_SERVICE_ACCOUNT` | `terraform output -raw github_deploy_sa_email` |
-| `GCP_PROJECT_ID` / `GCP_REGION` / `AR_REPO` / `FRONTEND_BUCKET` | match sandbox |
+| `GCP_WORKLOAD_IDENTITY_PROVIDER` | stack `workload_identity_provider` |
+| `GCP_SERVICE_ACCOUNT` | stack `github_deploy_sa_email` (`gh-deploy-nonprod@…`) |
+| `AR_REPO` | stack `artifact_registry_repo` (`todo-nonprod-api`) |
+| `GCP_PROJECT_ID` / `GCP_REGION` / `FRONTEND_BUCKET` | match sandbox |
 | `API_CLOUD_RUN_SERVICE` / `API_IMAGE_NAME` | `todo-sandbox-api` |
 | `MCP_CLOUD_RUN_SERVICE` / `MCP_IMAGE_NAME` | `todo-sandbox-mcp` |
 

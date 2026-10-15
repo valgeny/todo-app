@@ -2,6 +2,8 @@
 # modules/github_deploy — GitHub Actions deploy SA + Workload Identity Federation
 #
 # No JSON keys: GitHub OIDC → impersonate this SA (fits orgs that disable SA keys).
+# WIF pool id `github-actions` is project-scoped — only the project stack
+# (infra/stack) should create this module, once per GCP project.
 # -----------------------------------------------------------------------------
 
 resource "google_service_account" "github_deploy" {
@@ -25,8 +27,6 @@ resource "google_project_iam_member" "github_deploy_run_admin" {
 # Runtime act-as (API/MCP) and FE bucket write are owned by those modules via
 # var.deploy_members — this module only creates the deploy identity + WIF + AR/Run.
 
-# --- Workload Identity Federation (GitHub OIDC) ---
-
 resource "google_iam_workload_identity_pool" "github" {
   workload_identity_pool_id = "github-actions"
   display_name              = "GitHub Actions"
@@ -46,7 +46,6 @@ resource "google_iam_workload_identity_pool_provider" "github" {
     "attribute.ref"        = "assertion.ref"
   }
 
-  # Only tokens from this repo can use the pool provider.
   attribute_condition = "assertion.repository == \"${var.github_repository}\""
 
   oidc {

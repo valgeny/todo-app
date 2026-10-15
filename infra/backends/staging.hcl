@@ -1,1 +1,0 @@
-path = "states/staging.tfstate"

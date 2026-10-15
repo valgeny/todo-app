@@ -1,15 +1,14 @@
 # -----------------------------------------------------------------------------
-# envs/nonprod.tfvars.example — shared nonprod Cloud SQL instance
+# envs/nonprod.tfvars.example — project stack (once per nonprod GCP project)
 #
-# Apply ONCE before sandbox or staging:
-#   cp envs/nonprod.tfvars.example envs/nonprod.tfvars
-#   terraform init -reconfigure -backend-config=backends/nonprod.hcl
-#   terraform apply -var-file=envs/nonprod.tfvars
-#
-# Creates: todo-nonprod-pg (db-f1-micro). No Cloud Run.
+#   cp envs/nonprod.tfvars.example envs/nonprod.tfvars   # set project_id
+#   terraform -chdir=stack init -reconfigure -backend-config=backends/nonprod.hcl
+#   terraform -chdir=stack apply -var-file=../envs/nonprod.tfvars
 # -----------------------------------------------------------------------------
 
 project_id  = "your-gcp-project-id"
 environment = "nonprod"
 region      = "us-central1"
 name_prefix = "todo"
+
+github_repository = "valgeny/todo-app"

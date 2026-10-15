@@ -1,12 +1,10 @@
 # -----------------------------------------------------------------------------
-# envs/sandbox.tfvars.example — sandbox app stack
+# envs/sandbox.tfvars.example — sandbox app env
 #
-# Requires nonprod Cloud SQL (todo-nonprod-pg) already applied.
+# Requires project stack (nonprod) already applied. Copy stack outputs below.
 #
-#   terraform init -reconfigure -backend-config=backends/sandbox.hcl
-#   terraform apply -var-file=envs/sandbox.tfvars
-#
-# Creates: DB todo_sandbox on todo-nonprod-pg + API/MCP/FE (todo-sandbox-*).
+#   terraform -chdir=env init -reconfigure -backend-config=backends/sandbox.hcl
+#   terraform -chdir=env apply -var-file=../envs/sandbox.tfvars
 # -----------------------------------------------------------------------------
 
 project_id  = "your-gcp-project-id"
@@ -14,9 +12,13 @@ environment = "sandbox"
 region      = "us-central1"
 name_prefix = "todo"
 
-create_frontend_bucket = true
-
-github_repository = "valgeny/todo-app"
+# From: terraform -chdir=stack output
+sql_instance_name                = "todo-nonprod-pg"
+sql_connection_name              = "your-gcp-project-id:us-central1:todo-nonprod-pg"
+artifact_registry_repository_id  = "todo-nonprod-api"
+artifact_registry_location       = "us-central1"
+artifact_registry_name           = "todo-nonprod-api"
+deploy_sa_email                  = "gh-deploy-nonprod@your-gcp-project-id.iam.gserviceaccount.com"
 
 # CORS_ORIGINS + DB_PASSWORD are managed; do not set DB_PASSWORD here.
 secret_env = {}

@@ -48,9 +48,14 @@ Visual debugger for the graph (tool calls, state, replay). Needs a [LangSmith AP
 ```bash
 cd agent
 uv sync --extra dev
-# set LANGSMITH_API_KEY in config/.env.local2sandbox
+# set LANGSMITH_API_KEY + LANGSMITH_PROJECT in config/.env.local2sandbox
 uv run langgraph dev
 ```
+
+`LANGSMITH_PROJECT` is the label in the LangSmith agent switcher. Use
+`Todo Agent - <env>:<port>` (e.g. `Todo Agent - local2sandbox:2024` for this
+file + default `langgraph dev` port). Change the port suffix if you pass
+`--port`.
 
 Opens Studio at `https://smith.langchain.com/studio/?baseUrl=http://127.0.0.1:2024` (use `--tunnel` on Safari).
 

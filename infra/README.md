@@ -1,35 +1,41 @@
-# Terraform — Cloud Run + Cloud SQL (nonprod shared / prod dedicated)
+# Terraform — Cloud Run + Cloud SQL
 
-Local laptop: SQLite or `docker compose` Postgres — not this stack.
+Two roots: **`stack/`** (once per GCP project) and **`env/`** (identical per app environment). Local laptop: SQLite or `docker compose` Postgres — not this stack.
 
-## Environments
+## Layout
 
-| Env | State | Creates |
+| Root | Apply | Creates |
 | --- | --- | --- |
-| **nonprod** | `states/nonprod.tfstate` | Cloud SQL **`todo-nonprod-pg`** only (shared) |
-| **sandbox** | `states/sandbox.tfstate` | DB **`todo_sandbox`** on nonprod instance + API/MCP/FE |
-| **staging** | `states/staging.tfstate` | DB **`todo_staging`** on nonprod instance + API/MCP/FE |
-| **prod** | `states/prod.tfstate` | Cloud SQL **`todo-prod-pg`** + DB **`todo_prod`** + API/MCP/FE |
+| **`stack/`** | once per GCP project | APIs, AR **`todo-nonprod-api`**, WIF + **`gh-deploy-nonprod`**, SQL **`todo-nonprod-pg`** |
+| **`env/`** | once per environment | logical DB + API / MCP / FE |
 
-Sandbox/staging **require** nonprod first: they look up `todo-nonprod-pg` and fail if it is missing.
+| Identity | State | Tfvars |
+| --- | --- | --- |
+| **nonprod** (stack) | `states/nonprod.tfstate` | `envs/nonprod.tfvars` |
+| **sandbox** (env) | `states/sandbox.tfstate` | `envs/sandbox.tfvars` |
+| **staging** (env) | `states/staging.tfstate` | `envs/staging.tfvars` |
+| **prod** (env) | `states/prod.tfstate` | `envs/prod.tfvars` |
+
+Sandbox/staging/prod **require** the project stack first. Env tfvars must list stack outputs (`sql_*`, `artifact_registry_*`, `deploy_sa_email`) — no flags, no fallbacks.
 
 ## Apply order
 
 ```bash
 cd infra
 
-# 1) Shared nonprod Postgres (once)
+# 1) Project stack (once)
 cp envs/nonprod.tfvars.example envs/nonprod.tfvars   # set project_id
-terraform init -reconfigure -backend-config=backends/nonprod.hcl
-terraform apply -var-file=envs/nonprod.tfvars
+terraform -chdir=stack init -reconfigure -backend-config=backends/nonprod.hcl
+terraform -chdir=stack apply -var-file=../envs/nonprod.tfvars
+terraform -chdir=stack output
 
-# 2) Sandbox app (logical DB + Cloud Run)
+# 2) Sandbox env (copy stack outputs into sandbox.tfvars)
 cp envs/sandbox.tfvars.example envs/sandbox.tfvars
-terraform init -reconfigure -backend-config=backends/sandbox.hcl
-terraform apply -var-file=envs/sandbox.tfvars
+terraform -chdir=env init -reconfigure -backend-config=backends/sandbox.hcl
+terraform -chdir=env apply -var-file=../envs/sandbox.tfvars
 ```
 
-First Cloud SQL create can take **10–15 minutes**. Then deploy images:
+First Cloud SQL create can take **10–15 minutes**. Then deploy images (CI uses nonprod WIF + AR):
 
 ```bash
 gh workflow run deploy-gcp.yml --ref dev
@@ -37,24 +43,15 @@ gh workflow run deploy-gcp.yml --ref dev
 
 ## Modules
 
-| Module | Role |
-| --- | --- |
-| `sql_instance` | Cloud SQL instance (`db-f1-micro`, zonal, 10 GB HDD) |
-| `sql_database` | Logical DB + user on an existing instance |
-| `apis` / `mcp` / `frontends` | App stack (not created for `nonprod`) |
+| Module | Used by | Role |
+| --- | --- | --- |
+| `project_apis` | stack | Enable GCP APIs |
+| `artifact_registry` | stack | Docker repo (`todo-nonprod-api`) |
+| `github_deploy` | stack | Deploy SA + WIF pool |
+| `sql_instance` | stack | Cloud SQL instance (`db-f1-micro`, zonal, 10 GB HDD) |
+| `sql_database` | env | Logical DB + user on the stack instance |
+| `apis` / `mcp` / `frontends` / `secrets` | env | App stack |
 
 ## Cost
 
-One shared micro instance for all nonprod envs; prod has its own. No HA, no VPC connector (Cloud Run Unix socket `/cloudsql/…`).
-
-## Migrating old single `terraform.tfstate`
-
-If you previously applied sandbox into `terraform.tfstate`:
-
-```bash
-mkdir -p states
-mv terraform.tfstate states/sandbox.tfstate   # if it was sandbox-only
-terraform init -reconfigure -backend-config=backends/sandbox.hcl
-```
-
-Then apply **nonprod** in its own state before changing DB wiring on sandbox.
+One micro SQL instance per GCP project for shared nonprod envs; a dedicated prod GCP project gets its own stack instance. No HA, no VPC connector (Cloud Run Unix socket `/cloudsql/…`).
