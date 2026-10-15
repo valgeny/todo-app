@@ -86,10 +86,12 @@ resource "google_cloud_run_v2_service" "mcp" {
     percent = 100
   }
 
+  # Ignore API-injected service-level scaling that drifts every refresh when unset.
   lifecycle {
     ignore_changes = [
       client,
       client_version,
+      scaling,
     ]
   }
 }

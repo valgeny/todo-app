@@ -135,11 +135,13 @@ resource "google_cloud_run_v2_service" "api" {
     percent = 100
   }
 
-  # Ignore gcloud client metadata; image may be missing on first apply.
+  # Ignore gcloud client metadata and API-injected service-level scaling
+  # (manual_instance_count / min) that drifts every refresh when unset.
   lifecycle {
     ignore_changes = [
       client,
       client_version,
+      scaling,
     ]
   }
 }
