@@ -104,14 +104,27 @@ moved {
   from = module.github_deploy.google_service_account_iam_member.github_deploy_acts_as_api
   to   = module.apis.google_service_account_iam_member.deploy_acts_as["serviceAccount:gh-deploy-sandbox@project-8011a04e-e026-4189-b28.iam.gserviceaccount.com"]
 }
-# MCP: drop count index; act-as github_deploy → mcp.deploy_members
+# App modules gained count (nonprod skips them; sandbox/staging/prod use [0]).
+# Nested resources (including prior MCP act-as moves) follow the module address.
 moved {
-  from = module.mcp[0]
-  to   = module.mcp
+  from = module.artifact_registry
+  to   = module.artifact_registry[0]
 }
 moved {
-  from = module.github_deploy.google_service_account_iam_member.github_deploy_acts_as_mcp[0]
-  to   = module.mcp.google_service_account_iam_member.deploy_acts_as["serviceAccount:gh-deploy-sandbox@project-8011a04e-e026-4189-b28.iam.gserviceaccount.com"]
+  from = module.secrets
+  to   = module.secrets[0]
+}
+moved {
+  from = module.github_deploy
+  to   = module.github_deploy[0]
+}
+moved {
+  from = module.apis
+  to   = module.apis[0]
+}
+moved {
+  from = module.mcp
+  to   = module.mcp[0]
 }
 # FE deploy writer: flat → github_deploy → frontends (bucket owns its IAM)
 moved {
