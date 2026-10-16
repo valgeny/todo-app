@@ -89,3 +89,9 @@ variable "iap_members" {
     group:eng@example.com, domain:example.com).
   EOT
 }
+
+variable "langsmith_api_key" {
+  type        = string
+  description = "LANGSMITH_API_KEY — required by the licensed langgraph-api image for self-host."
+  sensitive   = true
+}

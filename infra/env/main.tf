@@ -131,6 +131,7 @@ module "agent" {
   iap_oauth_client_id     = var.iap_oauth_client_id
   iap_oauth_client_secret = var.iap_oauth_client_secret
   iap_members             = var.iap_members
+  langsmith_api_key       = var.agent_langsmith_api_key
 }
 
 module "frontends" {

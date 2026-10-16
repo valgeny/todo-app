@@ -3,10 +3,18 @@
 #
 # Access: browser Google login via IAP → LB → Cloud Run (not public run.app).
 # Runtime uses Vertex ADC (roles/aiplatform.user) + TODO_MCP_URL.
+# LangGraph API needs Redis + Postgres — sandbox uses Cloud Run sidecars.
 # -----------------------------------------------------------------------------
 
 data "google_project" "current" {
   project_id = var.project_id
+}
+
+# IAP service agent is created asynchronously; ensure it exists before IAM bind.
+resource "google_project_service_identity" "iap" {
+  provider = google-beta
+  project  = var.project_id
+  service  = "iap.googleapis.com"
 }
 
 resource "google_service_account" "agent" {
@@ -42,7 +50,11 @@ locals {
     TODO_MCP_URL          = var.mcp_endpoint
     GOOGLE_CLOUD_PROJECT  = var.project_id
     GOOGLE_CLOUD_LOCATION = var.region
-    # Prefer Vertex ADC over empty API key in container env.
+    # LangGraph API requires Redis + Postgres (sidecars share localhost).
+    REDIS_URI    = "redis://127.0.0.1:6379"
+    POSTGRES_URI = "postgres://postgres:postgres@127.0.0.1:5432/postgres?sslmode=disable"
+    # Licensed langgraph-api image needs LangSmith (dev) or LANGGRAPH_CLOUD_LICENSE_KEY.
+    LANGSMITH_API_KEY = var.langsmith_api_key
   }
 }
 
@@ -69,8 +81,12 @@ resource "google_cloud_run_v2_service" "agent" {
       max_instance_count = 1
     }
 
+    # LangGraph API (ingress)
     containers {
+      name  = "agent"
       image = var.image
+
+      depends_on = ["redis", "postgres"]
 
       ports {
         container_port = var.port
@@ -84,12 +100,71 @@ resource "google_cloud_run_v2_service" "agent" {
         }
       }
 
+      startup_probe {
+        tcp_socket {
+          port = var.port
+        }
+        initial_delay_seconds = 15
+        timeout_seconds       = 5
+        period_seconds        = 5
+        failure_threshold     = 24
+      }
+
       resources {
         limits = {
           cpu    = "1"
           memory = "1Gi"
         }
         cpu_idle = true
+      }
+    }
+
+    # Ephemeral Redis (sandbox; lost on scale-to-zero).
+    containers {
+      name  = "redis"
+      image = "redis:6-alpine"
+
+      resources {
+        limits = {
+          cpu    = "0.5"
+          memory = "256Mi"
+        }
+        cpu_idle = true
+      }
+
+      startup_probe {
+        tcp_socket {
+          port = 6379
+        }
+        failure_threshold = 12
+        period_seconds    = 5
+      }
+    }
+
+    # Ephemeral Postgres for LangGraph checkpoints (sandbox).
+    containers {
+      name  = "postgres"
+      image = "postgres:15-alpine"
+
+      env {
+        name  = "POSTGRES_PASSWORD"
+        value = "postgres"
+      }
+
+      resources {
+        limits = {
+          cpu    = "0.5"
+          memory = "512Mi"
+        }
+        cpu_idle = true
+      }
+
+      startup_probe {
+        tcp_socket {
+          port = 5432
+        }
+        failure_threshold = 12
+        period_seconds    = 5
       }
     }
   }
@@ -110,10 +185,12 @@ resource "google_cloud_run_v2_service" "agent" {
 
 # IAP service agent invokes Cloud Run on behalf of authenticated users.
 resource "google_cloud_run_v2_service_iam_member" "iap_invoker" {
+  depends_on = [google_project_service_identity.iap]
+
   name     = google_cloud_run_v2_service.agent.name
   location = google_cloud_run_v2_service.agent.location
   role     = "roles/run.invoker"
-  member   = "serviceAccount:service-${data.google_project.current.number}@gcp-sa-iap.iam.gserviceaccount.com"
+  member   = "serviceAccount:${google_project_service_identity.iap.email}"
 }
 
 # Deploy SA can also invoke for smoke / proxy (optional).

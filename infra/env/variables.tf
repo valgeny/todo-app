@@ -100,6 +100,12 @@ variable "agent_iap_host" {
   description = "DNS hostname for the agent IAP HTTPS load balancer (e.g. agent-sandbox.example.com)."
 }
 
+variable "agent_langsmith_api_key" {
+  type        = string
+  description = "LangSmith API key for the licensed LangGraph API image (sandbox/dev self-host)."
+  sensitive   = true
+}
+
 variable "secret_env" {
   type        = map(string)
   description = <<-EOT

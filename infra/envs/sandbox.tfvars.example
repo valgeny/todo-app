@@ -30,3 +30,5 @@ secret_env = {}
 
 # Agent hostname (IAP OAuth/members come from stack). DNS A → agent_iap_ip after apply.
 agent_iap_host = "agent-sandbox.example.com"
+# Licensed langgraph-api image (https://smith.langchain.com → API keys).
+agent_langsmith_api_key = "lsv2_pt_xxxx"
