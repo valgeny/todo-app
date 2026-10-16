@@ -172,7 +172,7 @@ jobs:
 
   deploy-agent:
     name: Agent build + deploy
-    needs: [deploy-mcp]
+    # Parallel with API/MCP; uses the already-deployed MCP URL (same run.app hostname).
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     environment: sandbox
@@ -181,9 +181,9 @@ jobs:
       GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
       GCP_REGION: ${{ vars.GCP_REGION }}
       AR_REPO: ${{ vars.AR_REPO }}
-      MCP_CLOUD_RUN_SERVICE: ${{ vars.MCP_CLOUD_RUN_SERVICE }}
-      AGENT_CLOUD_RUN_SERVICE: ${{ vars.AGENT_CLOUD_RUN_SERVICE }}
-      AGENT_IMAGE_NAME: ${{ vars.AGENT_IMAGE_NAME }}
+      MCP_CLOUD_RUN_SERVICE: ${{ vars.MCP_CLOUD_RUN_SERVICE || 'todo-sandbox-mcp' }}
+      AGENT_CLOUD_RUN_SERVICE: ${{ vars.AGENT_CLOUD_RUN_SERVICE || 'todo-sandbox-agent' }}
+      AGENT_IMAGE_NAME: ${{ vars.AGENT_IMAGE_NAME || 'todo-sandbox-agent' }}
       GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
       GCP_SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
     steps:

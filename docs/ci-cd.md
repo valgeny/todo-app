@@ -36,7 +36,7 @@ Those jobs run only when `github.event_name == 'push'`. The `github-pages` envir
 
 Workflow: `.github/workflows/deploy-gcp.yml`. Targets the **sandbox** env (`todo-sandbox-*`). Infra: apply **`stack/`** (nonprod) once, then **`env/`** with `envs/sandbox.tfvars` ([infra/README.md](../infra/README.md)). Agent IAP LB is Terraform-only; the workflow only builds/pushes the agent image.
 
-Jobs (API and MCP run **in parallel**; agent waits on MCP; FE waits on API):
+Jobs (API, MCP, and agent run **in parallel**; FE waits on API):
 
 | Job | Action |
 | --- | --- |
