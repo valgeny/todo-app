@@ -36,3 +36,20 @@ variable "github_repository" {
   description = "GitHub repository (owner/name) for WIF deploy."
   default     = "valgeny/todo-app"
 }
+
+# IAP is project-scoped (one OAuth client for HTTPS LBs in this GCP project).
+variable "iap_oauth_client_id" {
+  type        = string
+  description = "OAuth 2.0 client ID for IAP (APIs & Services → Credentials)."
+}
+
+variable "iap_oauth_client_secret" {
+  type        = string
+  description = "OAuth 2.0 client secret for IAP."
+  sensitive   = true
+}
+
+variable "iap_members" {
+  type        = list(string)
+  description = "Principals allowed through IAP (user:/group:/domain:)."
+}

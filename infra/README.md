@@ -6,8 +6,8 @@ Two roots: **`stack/`** (once per GCP project) and **`env/`** (identical per app
 
 | Root | Apply | Creates |
 | --- | --- | --- |
-| **`stack/`** | once per GCP project | APIs, AR **`todo-nonprod-api`**, WIF + **`gh-deploy-nonprod`**, SQL **`todo-nonprod-pg`** |
-| **`env/`** | once per environment | logical DB + API / MCP / FE |
+| **`stack/`** | once per GCP project | APIs, AR **`todo-nonprod-api`**, WIF + **`gh-deploy-nonprod`**, SQL **`todo-nonprod-pg`**, **IAP OAuth** |
+| **`env/`** | once per environment | logical DB + API / MCP / agent (Cloud Run + LB using stack IAP) / FE |
 
 | Identity | State | Tfvars |
 | --- | --- | --- |
@@ -16,7 +16,7 @@ Two roots: **`stack/`** (once per GCP project) and **`env/`** (identical per app
 | **staging** (env) | `states/staging.tfstate` | `envs/staging.tfvars` |
 | **prod** (env) | `states/prod.tfstate` | `envs/prod.tfvars` |
 
-Sandbox/staging/prod **require** the project stack first. Env tfvars must list stack outputs (`sql_*`, `artifact_registry_*`, `deploy_sa_email`) — no flags, no fallbacks.
+Sandbox/staging/prod **require** the project stack first. Env tfvars must list stack outputs (`sql_*`, `artifact_registry_*`, `deploy_sa_email`, `iap_*`) — no flags, no fallbacks.
 
 ## Apply order
 
@@ -50,8 +50,21 @@ gh workflow run deploy-gcp.yml --ref dev
 | `github_deploy` | stack | Deploy SA + WIF pool |
 | `sql_instance` | stack | Cloud SQL instance (`db-f1-micro`, zonal, 10 GB HDD) |
 | `sql_database` | env | Logical DB + user on the stack instance |
-| `apis` / `mcp` / `frontends` / `secrets` | env | App stack |
+| `apis` / `mcp` / `agent` / `frontends` / `secrets` | env | App stack |
+
+### Agent (LangGraph) + IAP
+
+**IAP is stack-owned** (one OAuth client + accessor list per GCP project). Env wires Cloud Run + HTTPS LB and passes through stack `iap_*` outputs.
+
+Before apply:
+
+1. Create an **OAuth 2.0 Web client** (APIs & Services → Credentials). Redirect URI: `https://iap.googleapis.com/v1/oauth/clientIds/<CLIENT_ID>:handleRedirect`.
+2. Set `iap_oauth_client_*` and `iap_members` in **stack** tfvars (`nonprod.tfvars`); re-apply stack (also enables `compute` / `iap` / `aiplatform`).
+3. Copy stack `iap_*` outputs into env tfvars; set per-env `agent_iap_host`.
+4. After env apply: DNS **A** for `agent_iap_host` → `terraform -chdir=env output -raw agent_iap_ip`.
+
+Public URL: `agent_iap_url`. CI only pushes the agent image.
 
 ## Cost
 
-One micro SQL instance per GCP project for shared nonprod envs; a dedicated prod GCP project gets its own stack instance. No HA, no VPC connector (Cloud Run Unix socket `/cloudsql/…`).
+One micro SQL instance per GCP project for shared nonprod envs; a dedicated prod GCP project gets its own stack instance. No HA, no VPC connector (Cloud Run Unix socket `/cloudsql/…`). Agent adds a global HTTPS LB + static IP + managed cert (IAP).

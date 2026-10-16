@@ -39,6 +39,10 @@ uv run todo-agent --list-tools
 
 Gemini auth: set `GOOGLE_API_KEY` for AI Studio, or leave it empty and use Vertex ADC + `GOOGLE_CLOUD_PROJECT`.
 
+### Cloud Run + IAP (sandbox)
+
+Terraform (`infra/modules/agent`) deploys the LangGraph API image behind Identity-Aware Proxy. Set `TODO_MCP_URL` and Vertex project/location via Terraform; CI pushes `todo-sandbox-agent` images. Public URL is `agent_iap_url` (Google login), not the `run.app` hostname — see [infra/README.md](../infra/README.md).
+
 Relative dates (“tomorrow”, …) use a dynamic system prompt with today’s date; set `AGENT_TZ` (IANA) if you don’t want the host timezone.
 
 ## LangSmith Studio (local)

@@ -2,10 +2,10 @@ import type { Server } from 'node:http';
 import express, { type Application, type Request, type Response, Router } from 'express';
 import status from 'http-status';
 import type { DataSource } from 'typeorm';
+import { initDb } from '@/storage';
 import { config } from './config';
 import { globalErrorHandler, HttpError, httpErrorTransformer } from './errors';
 import { logger } from './logger';
-import { initDb } from '@/storage';
 import todoRouter from './routers/todoRouter';
 import { security } from './security';
 
