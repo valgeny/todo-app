@@ -15,8 +15,10 @@ github_repository = "valgeny/todo-app"
 
 # IAP (project-scoped). Create OAuth 2.0 Web client in APIs & Services → Credentials.
 # Redirect URI: https://iap.googleapis.com/v1/oauth/clientIds/<CLIENT_ID>:handleRedirect
+# Consent screen must stay Internal. Members must be Cloud Identity/Workspace users
+# in this org (org-domain addresses), not consumer Gmail.
 iap_oauth_client_id     = "xxxx.apps.googleusercontent.com"
 iap_oauth_client_secret = "GOCSPX-xxxx"
 iap_members = [
-  "user:you@example.com",
+  "user:you@your-org-domain.com",
 ]

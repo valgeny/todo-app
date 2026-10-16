@@ -56,14 +56,19 @@ gh workflow run deploy-gcp.yml --ref dev
 
 **IAP is stack-owned** (one OAuth client + accessor list per GCP project). Env wires Cloud Run + HTTPS LB and passes through stack `iap_*` outputs.
 
+**Keep OAuth consent Internal** (`orgInternalOnly`). Accessors must be Cloud Identity / Workspace users in the same org — consumer Gmail accounts get `403: org_internal` even if they own the GCP project. Use an address on your verified org domain (e.g. `you@valeriangeny.dev`), not `user:…@gmail.com`.
+
+On the OAuth consent screen, set **support email** to that org address (or an org Google Group). The brand `supportEmail` is shown on the consent UI; keep personal Gmail off it.
+
 Before apply:
 
-1. Create an **OAuth 2.0 Web client** (APIs & Services → Credentials). Redirect URI: `https://iap.googleapis.com/v1/oauth/clientIds/<CLIENT_ID>:handleRedirect`.
-2. Set `iap_oauth_client_*` and `iap_members` in **stack** tfvars (`nonprod.tfvars`); re-apply stack (also enables `compute` / `iap` / `aiplatform`).
-3. Copy stack `iap_*` outputs into env tfvars; set per-env `agent_iap_host`.
-4. After env apply: DNS **A** for `agent_iap_host` → `terraform -chdir=env output -raw agent_iap_ip`.
+1. Ensure Cloud Identity (or Workspace) is linked to the GCP org and you have a directory user on the org domain.
+2. Create an **OAuth 2.0 Web client** (APIs & Services → Credentials). Redirect URI: `https://iap.googleapis.com/v1/oauth/clientIds/<CLIENT_ID>:handleRedirect`.
+3. Set `iap_oauth_client_*` and `iap_members` (org users only) in **stack** tfvars (`nonprod.tfvars`); re-apply stack (also enables `compute` / `iap` / `aiplatform`).
+4. Copy stack `iap_*` outputs into env tfvars; set per-env `agent_iap_host`.
+5. After env apply: DNS **A** for `agent_iap_host` → `terraform -chdir=env output -raw agent_iap_ip`.
 
-Public URL: `agent_iap_url`. CI only pushes the agent image.
+Public URL: `agent_iap_url`. CI only pushes the agent image. Domain WHOIS for Cloud Domains registrations should stay **REDACTED_CONTACT_DATA** (not public registrant email).
 
 ## Cost
 

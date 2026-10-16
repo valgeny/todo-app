@@ -20,8 +20,9 @@ artifact_registry_name          = "todo-nonprod-api"
 deploy_sa_email                 = "gh-deploy-nonprod@your-gcp-project-id.iam.gserviceaccount.com"
 iap_oauth_client_id             = "xxxx.apps.googleusercontent.com"
 iap_oauth_client_secret         = "GOCSPX-xxxx"
+# Org-directory users only (Internal OAuth). Do not use @gmail.com here.
 iap_members = [
-  "user:you@example.com",
+  "user:you@your-org-domain.com",
 ]
 
 secret_env = {}
