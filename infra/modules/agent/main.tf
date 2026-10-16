@@ -258,7 +258,8 @@ resource "google_compute_url_map" "agent" {
 }
 
 resource "google_compute_managed_ssl_certificate" "agent" {
-  name = "${var.prefix}-agent-cert"
+  # Name must change when domain changes (create_before_destroy + unique name).
+  name = "${var.prefix}-agent-cert-${substr(md5(var.iap_host), 0, 8)}"
 
   managed {
     domains = [var.iap_host]
