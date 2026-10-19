@@ -1,7 +1,8 @@
 # -----------------------------------------------------------------------------
 # main.tf — Project-level stack (once per GCP project)
 #
-# Creates: project APIs, Artifact Registry, WIF + deploy SA, Cloud SQL instance.
+# Creates: project APIs, Artifact Registry, WIF + deploy SA, Cloud SQL instance,
+# IAP OAuth client settings (outputs for env HTTPS LBs).
 # Does not create: Cloud Run, logical DB, FE, secrets.
 #
 # Apply before any env in this project:
@@ -19,6 +20,10 @@ locals {
     "sts.googleapis.com",
     "cloudbuild.googleapis.com",
     "secretmanager.googleapis.com",
+    # Agent (LangGraph) behind IAP HTTPS LB + Vertex
+    "compute.googleapis.com",
+    "iap.googleapis.com",
+    "aiplatform.googleapis.com",
   ]
 
   # AR: todo-nonprod-api. SQL: todo-nonprod-pg. SA: gh-deploy-nonprod.

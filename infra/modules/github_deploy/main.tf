@@ -24,7 +24,7 @@ resource "google_project_iam_member" "github_deploy_run_admin" {
   member  = "serviceAccount:${google_service_account.github_deploy.email}"
 }
 
-# Runtime act-as (API/MCP) and FE bucket write are owned by those modules via
+# Runtime act-as (API/MCP/agent) and FE bucket write are owned by those modules via
 # var.deploy_members — this module only creates the deploy identity + WIF + AR/Run.
 
 resource "google_iam_workload_identity_pool" "github" {

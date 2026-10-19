@@ -1,6 +1,6 @@
 name: Deploy GCP
 
-# Deploys Cloud Run API + MCP + static FE bucket in parallel where possible.
+# Deploys Cloud Run API + MCP + agent + static FE bucket in parallel where possible.
 # Infra (AR, secrets, bucket, WIF) is managed by local Terraform.
 # Auth: GitHub OIDC → Workload Identity Federation (no JSON key).
 # Config: GitHub Environment "sandbox" variables (see docs/ci-cd.md).
@@ -168,6 +168,94 @@ jobs:
             sleep 3
           done
           echo "Health check failed against ${MCP_URI}/health" >&2
+          exit 1
+
+  deploy-agent:
+    name: Agent build + deploy
+    # Parallel with API/MCP; uses the already-deployed MCP URL (same run.app hostname).
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: sandbox
+    # Image only; IAP HTTPS LB is Terraform. Smoke via gcloud (run.app is internal-LB).
+    env:
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      GCP_REGION: ${{ vars.GCP_REGION }}
+      AR_REPO: ${{ vars.AR_REPO }}
+      MCP_CLOUD_RUN_SERVICE: ${{ vars.MCP_CLOUD_RUN_SERVICE || 'todo-sandbox-mcp' }}
+      AGENT_CLOUD_RUN_SERVICE: ${{ vars.AGENT_CLOUD_RUN_SERVICE || 'todo-sandbox-agent' }}
+      AGENT_IMAGE_NAME: ${{ vars.AGENT_IMAGE_NAME || 'todo-sandbox-agent' }}
+      GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+      GCP_SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v3
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker "${GCP_REGION}-docker.pkg.dev" --quiet
+
+      - name: Resolve live MCP endpoint
+        id: mcp
+        run: |
+          set -euo pipefail
+          MCP_URI=$(gcloud run services describe "${MCP_CLOUD_RUN_SERVICE}" \
+            --project="${GCP_PROJECT_ID}" \
+            --region="${GCP_REGION}" \
+            --format='value(status.url)')
+          echo "mcp_endpoint=${MCP_URI}/mcp" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push agent image
+        env:
+          IMAGE: ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/${{ env.AGENT_IMAGE_NAME }}
+        run: |
+          set -euo pipefail
+          docker build --platform linux/amd64 -f agent/Dockerfile \
+            -t "${IMAGE}:${GITHUB_SHA}" \
+            -t "${IMAGE}:latest" \
+            agent
+          docker push "${IMAGE}:${GITHUB_SHA}"
+          docker push "${IMAGE}:latest"
+          echo "IMAGE_REF=${IMAGE}:${GITHUB_SHA}" >> "$GITHUB_ENV"
+
+      - name: Deploy Cloud Run agent
+        id: deploy
+        run: |
+          set -euo pipefail
+          gcloud run deploy "${AGENT_CLOUD_RUN_SERVICE}" \
+            --project="${GCP_PROJECT_ID}" \
+            --region="${GCP_REGION}" \
+            --image="${IMAGE_REF}" \
+            --update-env-vars="TODO_MCP_URL=${{ steps.mcp.outputs.mcp_endpoint }}" \
+            --quiet
+          AGENT_URI=$(gcloud run services describe "${AGENT_CLOUD_RUN_SERVICE}" \
+            --project="${GCP_PROJECT_ID}" \
+            --region="${GCP_REGION}" \
+            --format='value(status.url)')
+          echo "agent_uri=${AGENT_URI}" >> "$GITHUB_OUTPUT"
+          echo "### Agent" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Cloud Run: ${AGENT_URI} (internal LB / IAP only)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Public URL: Terraform output \`agent_iap_url\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Confirm agent revision Ready
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 30); do
+            ready=$(gcloud run services describe "${AGENT_CLOUD_RUN_SERVICE}" \
+              --project="${GCP_PROJECT_ID}" \
+              --region="${GCP_REGION}" \
+              --format='value(status.conditions[0].status)' || echo Unknown)
+            [ "$ready" = "True" ] && exit 0
+            sleep 5
+          done
+          echo "Agent service did not become Ready" >&2
+          gcloud run services describe "${AGENT_CLOUD_RUN_SERVICE}" \
+            --project="${GCP_PROJECT_ID}" \
+            --region="${GCP_REGION}" >&2 || true
           exit 1
 
   deploy-fe:

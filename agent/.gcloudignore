@@ -1,0 +1,17 @@
+.venv
+__pycache__
+**/__pycache__
+*.pyc
+.pytest_cache
+.mypy_cache
+.ruff_cache
+evals
+tests
+config/.env
+config/.env.local
+config/.env.local2sandbox
+.python-version
+uv.lock
+.langgraph_api
+**/__pycache__/
+.git
