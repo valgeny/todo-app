@@ -101,3 +101,23 @@ output "agent_service_name" {
   value       = module.agent.service_name
   description = "Cloud Run agent service name."
 }
+
+output "agent_ui_url" {
+  value       = module.agent.ui_url
+  description = "Public CopilotKit agent-ui URL behind IAP."
+}
+
+output "agent_ui_host" {
+  value       = module.agent.ui_host
+  description = "UI hostname. DNS A → agent_iap_ip."
+}
+
+output "agent_ui_image" {
+  value       = local.agent_ui_image
+  description = "agent-ui container image URI."
+}
+
+output "agent_ui_service_name" {
+  value       = module.agent.ui_service_name
+  description = "Cloud Run agent-ui service name."
+}

@@ -68,7 +68,26 @@ variable "port" {
 
 variable "iap_host" {
   type        = string
-  description = "Public hostname for the IAP HTTPS load balancer (DNS A → static IP)."
+  description = "Public hostname for the Agent Server (DNS A → static IP)."
+}
+
+variable "ui_host" {
+  type        = string
+  description = <<-EOT
+    Public hostname for CopilotKit agent-ui (DNS A → same LB IP as iap_host).
+    Browser stays on this host (/api/copilotkit); runtime calls Agent Server IAM.
+  EOT
+}
+
+variable "ui_image" {
+  type        = string
+  description = "Full container image URI for agent-ui."
+}
+
+variable "ui_assistant_id" {
+  type        = string
+  description = "LANGGRAPH_GRAPH_ID / CopilotKit agent key (must match langgraph.json)."
+  default     = "todo_agent"
 }
 
 variable "iap_oauth_client_id" {

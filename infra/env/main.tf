@@ -40,6 +40,10 @@ locals {
   agent_image = var.agent_image != "" ? var.agent_image : (
     "${var.region}-docker.pkg.dev/${var.project_id}/${var.artifact_registry_repository_id}/${local.prefix}-agent:latest"
   )
+
+  agent_ui_image = var.agent_ui_image != "" ? var.agent_ui_image : (
+    "${var.region}-docker.pkg.dev/${var.project_id}/${var.artifact_registry_repository_id}/${local.prefix}-agent-ui:latest"
+  )
 }
 
 module "sql_database" {
@@ -128,6 +132,8 @@ module "agent" {
   ]
 
   iap_host                = var.agent_iap_host
+  ui_host                 = var.agent_ui_host
+  ui_image                = local.agent_ui_image
   iap_oauth_client_id     = var.iap_oauth_client_id
   iap_oauth_client_secret = var.iap_oauth_client_secret
   iap_members             = var.iap_members

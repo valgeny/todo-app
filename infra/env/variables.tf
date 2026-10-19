@@ -97,7 +97,18 @@ variable "agent_image" {
 
 variable "agent_iap_host" {
   type        = string
-  description = "DNS hostname for the agent IAP HTTPS load balancer (e.g. agent-sandbox.example.com)."
+  description = "DNS hostname for the agent IAP HTTPS load balancer (e.g. agent.example.com)."
+}
+
+variable "agent_ui_host" {
+  type        = string
+  description = "DNS hostname for CopilotKit agent-ui on the same LB IP (e.g. ui.example.com)."
+}
+
+variable "agent_ui_image" {
+  type        = string
+  description = "Full container image URI for agent-ui. Empty = default …/{prefix}-agent-ui:latest."
+  default     = ""
 }
 
 variable "agent_langsmith_api_key" {

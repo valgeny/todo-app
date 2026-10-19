@@ -65,11 +65,22 @@ Before apply:
 1. Ensure Cloud Identity (or Workspace) is linked to the GCP org and you have a directory user on the org domain.
 2. Create an **OAuth 2.0 Web client** (APIs & Services → Credentials). Redirect URI: `https://iap.googleapis.com/v1/oauth/clientIds/<CLIENT_ID>:handleRedirect`.
 3. Set `iap_oauth_client_*` and `iap_members` (org users only) in **stack** tfvars (`nonprod.tfvars`); re-apply stack (also enables `compute` / `iap` / `aiplatform`).
-4. Copy stack `iap_*` outputs into env tfvars; set per-env `agent_iap_host`.
-5. After env apply: DNS **A** for `agent_iap_host` → `terraform -chdir=env output -raw agent_iap_ip`.
+4. Copy stack `iap_*` outputs into env tfvars; set per-env `agent_iap_host` and `agent_ui_host`.
+5. After env apply: DNS **A** for both hosts → `terraform -chdir=env output -raw agent_iap_ip`.
 
-Public URL: `agent_iap_url`. CI only pushes the agent image. Domain WHOIS for Cloud Domains registrations should stay **REDACTED_CONTACT_DATA** (not public registrant email).
+Public URLs: `agent_iap_url` (Agent Server API), `agent_ui_url` (CopilotKit). Both share one LB IP + IAP.
+
+### CopilotKit agent-ui
+
+Required `agent_ui_host` (e.g. `ui.valeriangeny.dev`). Same HTTPS LB/IAP. Browser stays on `ui.*` (`/api/copilotkit`); Next.js runtime calls the Agent Server Cloud Run URL with a Google ID token (UI SA is `roles/run.invoker`).
+
+```bash
+docker build -f agent-ui/Dockerfile -t "$(terraform -chdir=infra/env output -raw agent_ui_image)" .
+docker push "$(terraform -chdir=infra/env output -raw agent_ui_image)"
+```
+
+Domain WHOIS for Cloud Domains registrations should stay **REDACTED_CONTACT_DATA** (not public registrant email).
 
 ## Cost
 
-One micro SQL instance per GCP project for shared nonprod envs; a dedicated prod GCP project gets its own stack instance. No HA, no VPC connector (Cloud Run Unix socket `/cloudsql/…`). Agent adds a global HTTPS LB + static IP + managed cert (IAP).
+One micro SQL instance per GCP project for shared nonprod envs; a dedicated prod GCP project gets its own stack instance. No HA, no VPC connector (Cloud Run Unix socket `/cloudsql/…`). Agent + CopilotKit UI share a global HTTPS LB + static IP + managed cert (IAP).

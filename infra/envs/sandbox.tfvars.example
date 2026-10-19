@@ -29,7 +29,8 @@ iap_members = [
 # CORS_ORIGINS + DB_PASSWORD are managed; do not set DB_PASSWORD here.
 secret_env = {}
 
-# Agent hostname (IAP OAuth/members come from stack). DNS A → agent_iap_ip after apply.
-agent_iap_host = "agent-sandbox.example.com"
+# Agent + Chat UI hostnames (same LB IP). DNS A for both → agent_iap_ip after apply.
+agent_iap_host = "agent.example.com"
+agent_ui_host  = "ui.example.com"
 # Licensed langgraph-api image (https://smith.langchain.com → API keys).
 agent_langsmith_api_key = "lsv2_pt_xxxx"

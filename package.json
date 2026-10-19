@@ -7,14 +7,17 @@
   "workspaces": [
     "server",
     "web",
-    "mcp"
+    "mcp",
+    "agent-ui"
   ],
   "scripts": {
     "start": "yarn workspace server start",
     "dev:server": "yarn workspace server debug",
     "dev:web": "yarn workspace web dev",
     "dev:web:docker": "yarn workspace web dev:docker",
+    "dev:agent-ui": "yarn workspace agent-ui dev",
     "build": "yarn workspace web build",
+    "build:agent-ui": "yarn workspace agent-ui build",
     "openapi:build": "yarn workspace server openapi:build",
     "mcp": "node --import tsx mcp/src/index.ts",
     "mcp:http": "yarn workspace mcp start:http",

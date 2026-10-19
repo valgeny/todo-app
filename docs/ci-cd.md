@@ -36,13 +36,14 @@ Those jobs run only when `github.event_name == 'push'`. The `github-pages` envir
 
 Workflow: `.github/workflows/deploy-gcp.yml`. Targets the **sandbox** env (`todo-sandbox-*`). Infra: apply **`stack/`** (nonprod) once, then **`env/`** with `envs/sandbox.tfvars` ([infra/README.md](../infra/README.md)). Agent IAP LB is Terraform-only; the workflow only builds/pushes the agent image.
 
-Jobs (API, MCP, and agent run **in parallel**; FE waits on API):
+Jobs (API, MCP, and agent run **in parallel**; FE waits on API; agent-ui waits on agent):
 
 | Job | Action |
 | --- | --- |
 | **API build + deploy** | `server/Dockerfile` → AR → `gcloud run deploy` → `/health` |
 | **MCP build + deploy** | `mcp/Dockerfile` → AR → deploy with `TODO_API_ORIGIN` from live API → `/health` |
 | **Agent build + deploy** | `agent/Dockerfile` → AR → deploy with `TODO_MCP_URL` from live MCP → Ready check (no public curl; IAP) |
+| **Agent UI build + deploy** | `agent-ui/Dockerfile` → AR → deploy with `LANGGRAPH_URL` |
 | **Frontend** | `yarn build` with `VITE_API_ORIGIN` → GCS upload |
 
 Auth is **Workload Identity Federation** on every job (no JSON key).
@@ -75,6 +76,7 @@ terraform -chdir=env output -raw mcp_endpoint
 | `API_CLOUD_RUN_SERVICE` / `API_IMAGE_NAME` | `todo-sandbox-api` |
 | `MCP_CLOUD_RUN_SERVICE` / `MCP_IMAGE_NAME` | `todo-sandbox-mcp` |
 | `AGENT_CLOUD_RUN_SERVICE` / `AGENT_IMAGE_NAME` | `todo-sandbox-agent` |
+| `AGENT_UI_CLOUD_RUN_SERVICE` / `AGENT_UI_IMAGE_NAME` | `todo-sandbox-agent-ui` |
 
 3. You do **not** need `GCP_SA_KEY`.
 4. Push any branch or **Actions → Deploy GCP → Run workflow**.
