@@ -1,7 +1,8 @@
 # CopilotKit Next.js UI. Build from repo root:
 #   docker build -f agent-ui/Dockerfile -t …/todo-sandbox-agent-ui:latest .
 
-FROM node:22-bookworm-slim AS build
+# Root package.json engines require Node >=24.
+FROM node:24-bookworm-slim AS build
 WORKDIR /app
 COPY package.json yarn.lock ./
 COPY agent-ui/package.json ./agent-ui/
@@ -11,7 +12,7 @@ WORKDIR /app/agent-ui
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN yarn build
 
-FROM node:22-bookworm-slim AS runner
+FROM node:24-bookworm-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
