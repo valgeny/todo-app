@@ -113,7 +113,7 @@ variable "agent_ui_image" {
 
 variable "agent_langsmith_api_key" {
   type        = string
-  description = "LangSmith API key for the licensed LangGraph API image (sandbox/dev self-host)."
+  description = "LangSmith API key — stored in Secret Manager and mounted on the agent Cloud Run service."
   sensitive   = true
 }
 

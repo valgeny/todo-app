@@ -61,15 +61,22 @@ locals {
     # LangGraph API requires Redis + Postgres (sidecars share localhost).
     REDIS_URI    = "redis://127.0.0.1:6379"
     POSTGRES_URI = "postgres://postgres:postgres@127.0.0.1:5432/postgres?sslmode=disable"
-    # Licensed langgraph-api image needs LangSmith (dev) or LANGGRAPH_CLOUD_LICENSE_KEY.
-    LANGSMITH_API_KEY = var.langsmith_api_key
   }
+}
+
+resource "google_secret_manager_secret_iam_member" "agent_accessor" {
+  for_each = var.secret_resources
+
+  secret_id = each.value.id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.agent.email}"
 }
 
 resource "google_cloud_run_v2_service" "agent" {
   depends_on = [
     google_artifact_registry_repository_iam_member.agent_reader,
     google_project_iam_member.agent_aiplatform_user,
+    google_secret_manager_secret_iam_member.agent_accessor,
   ]
 
   name     = "${var.prefix}-agent"
@@ -105,6 +112,19 @@ resource "google_cloud_run_v2_service" "agent" {
         content {
           name  = env.key
           value = env.value
+        }
+      }
+
+      dynamic "env" {
+        for_each = var.secret_resources
+        content {
+          name = env.key
+          value_source {
+            secret_key_ref {
+              secret  = env.value.secret_id
+              version = "latest"
+            }
+          }
         }
       }
 
@@ -421,8 +441,8 @@ resource "google_compute_url_map" "agent" {
 }
 
 resource "google_compute_managed_ssl_certificate" "agent" {
-  # Name must change when domain set changes (create_before_destroy + unique name).
-  name = "${var.prefix}-agent-cert-${local.cert_fingerprint}"
+  # name_prefix so -replace / recreate always gets a unique name (same domains).
+  name_prefix = "${var.prefix}-agent-cert-${local.cert_fingerprint}-"
 
   managed {
     domains = local.cert_hosts

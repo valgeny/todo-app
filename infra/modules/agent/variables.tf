@@ -109,8 +109,10 @@ variable "iap_members" {
   EOT
 }
 
-variable "langsmith_api_key" {
-  type        = string
-  description = "LANGSMITH_API_KEY — required by the licensed langgraph-api image for self-host."
-  sensitive   = true
+variable "secret_resources" {
+  type = map(object({
+    id        = string
+    secret_id = string
+  }))
+  description = "Secrets to mount as Cloud Run env (e.g. LANGSMITH_API_KEY) and grant secretAccessor."
 }
