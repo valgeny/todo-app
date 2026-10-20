@@ -116,3 +116,9 @@ variable "secret_resources" {
   }))
   description = "Secrets to mount as Cloud Run env (e.g. LANGSMITH_API_KEY) and grant secretAccessor."
 }
+
+variable "vpc_subnet_cidr" {
+  type        = string
+  description = "IPv4 CIDR for the Direct VPC egress subnet (must be /26 or larger)."
+  default     = "10.90.0.0/24"
+}

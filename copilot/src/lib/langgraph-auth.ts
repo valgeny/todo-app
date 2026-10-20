@@ -53,9 +53,7 @@ async function idTokenFromGoogleAuth(audience: string): Promise<string | null> {
   }
 }
 
-export async function langGraphHeaders(
-  deploymentUrl: string
-): Promise<Record<string, string>> {
+export async function langGraphHeaders(deploymentUrl: string): Promise<Record<string, string>> {
   let host: string;
   try {
     host = new URL(deploymentUrl).hostname;

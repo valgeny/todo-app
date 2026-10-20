@@ -1,9 +1,9 @@
+import { LangGraphAgent } from '@copilotkit/runtime/langgraph';
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
   InMemoryAgentRunner
 } from '@copilotkit/runtime/v2';
-import { LangGraphAgent } from '@copilotkit/runtime/langgraph';
 
 import { langGraphHeaders } from '@/lib/langgraph-auth';
 

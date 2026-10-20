@@ -6,7 +6,9 @@
 # LangGraph API needs Redis + Postgres — sandbox uses Cloud Run sidecars.
 #
 # Copilot (copilot_host + copilot_image): same LB IP + IAP, serves CopilotKit.
-# Browser ↔ copilot only; Next.js runtime → agent Cloud Run with ID token (IAM).
+# Browser ↔ copilot only; Next.js runtime → agent run.app with ID token (IAM).
+# Agent ingress is LB + VPC only; copilot reaches it via Direct VPC egress
+# (ALL_TRAFFIC + Private Google Access) so the call is treated as internal.
 # -----------------------------------------------------------------------------
 
 locals {
@@ -81,8 +83,9 @@ resource "google_cloud_run_v2_service" "agent" {
 
   name     = "${var.prefix}-agent"
   location = var.region
-  # ALL + IAM (no allUsers): IAP LB for browsers; copilot Cloud Run invokes via ID token.
-  ingress = "INGRESS_TRAFFIC_ALL"
+  # LB (IAP browsers) + VPC-internal only — not public run.app from the internet.
+  # Copilot reaches this via Direct VPC egress (see copilot vpc_access below).
+  ingress = "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER"
   labels  = var.labels
 
   deletion_protection = false
@@ -240,6 +243,35 @@ resource "google_cloud_run_v2_service_iam_member" "copilot_invokes_agent" {
 }
 
 # -----------------------------------------------------------------------------
+# VPC for copilot → agent (Direct VPC egress; no Serverless VPC Access connector)
+# -----------------------------------------------------------------------------
+
+resource "google_compute_network" "agent" {
+  name                    = "${var.prefix}-agent"
+  auto_create_subnetworks = false
+  routing_mode            = "REGIONAL"
+}
+
+# /24 (≥ /26 required for Direct VPC). Private Google Access so run.app is
+# reached privately when copilot egress is ALL_TRAFFIC.
+resource "google_compute_subnetwork" "agent" {
+  name                     = "${var.prefix}-agent"
+  ip_cidr_range            = var.vpc_subnet_cidr
+  region                   = var.region
+  network                  = google_compute_network.agent.id
+  private_ip_google_access = true
+}
+
+# Cloud Run service agent needs subnet use for Direct VPC egress.
+resource "google_compute_subnetwork_iam_member" "run_network_user" {
+  project    = var.project_id
+  region     = var.region
+  subnetwork = google_compute_subnetwork.agent.name
+  role       = "roles/compute.networkUser"
+  member     = "serviceAccount:service-${data.google_project.current.number}@serverless-robot-prod.iam.gserviceaccount.com"
+}
+
+# -----------------------------------------------------------------------------
 # CopilotKit copilot (Cloud Run)
 # -----------------------------------------------------------------------------
 
@@ -264,7 +296,10 @@ resource "google_service_account_iam_member" "deploy_acts_as_copilot" {
 }
 
 resource "google_cloud_run_v2_service" "copilot" {
-  depends_on = [google_artifact_registry_repository_iam_member.copilot_reader]
+  depends_on = [
+    google_artifact_registry_repository_iam_member.copilot_reader,
+    google_compute_subnetwork_iam_member.run_network_user,
+  ]
 
   name     = "${var.prefix}-copilot"
   location = var.region
@@ -280,6 +315,16 @@ resource "google_cloud_run_v2_service" "copilot" {
     scaling {
       min_instance_count = 0
       max_instance_count = 2
+    }
+
+    # Route agent run.app calls through the VPC so agent INTERNAL_LOAD_BALANCER
+    # ingress treats them as internal (Private Google Access on the subnet).
+    vpc_access {
+      egress = "ALL_TRAFFIC"
+      network_interfaces {
+        network    = google_compute_network.agent.id
+        subnetwork = google_compute_subnetwork.agent.id
+      }
     }
 
     containers {

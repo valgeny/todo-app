@@ -72,7 +72,7 @@ Public URLs: `agent_iap_url` (Agent Server API), `copilot_url` (CopilotKit). Bot
 
 ### CopilotKit copilot
 
-Required `copilot_host` (e.g. `copilot.valeriangeny.dev`). Same HTTPS LB/IAP. Browser stays on `copilot.*` (`/api/copilotkit`); Next.js runtime calls the Agent Server Cloud Run URL with a Google ID token (copilot SA is `roles/run.invoker`).
+Required `copilot_host` (e.g. `copilot.valeriangeny.dev`). Same HTTPS LB/IAP. Browser stays on `copilot.*` (`/api/copilotkit`); Next.js runtime calls the Agent Server `run.app` URL with a Google ID token (copilot SA is `roles/run.invoker`). Agent ingress is **internal + Cloud Load Balancing** (not public `run.app`); copilot uses **Direct VPC egress** (`ALL_TRAFFIC` + Private Google Access on a dedicated `/24`) so that call is treated as internal.
 
 ```bash
 docker build -f copilot/Dockerfile -t "$(terraform -chdir=infra/env output -raw copilot_image)" .
@@ -83,4 +83,4 @@ Domain WHOIS for Cloud Domains registrations should stay **REDACTED_CONTACT_DATA
 
 ## Cost
 
-One micro SQL instance per GCP project for shared nonprod envs; a dedicated prod GCP project gets its own stack instance. No HA, no VPC connector (Cloud Run Unix socket `/cloudsql/…`). Agent + copilot share a global HTTPS LB + static IP + managed cert (IAP).
+One micro SQL instance per GCP project for shared nonprod envs; a dedicated prod GCP project gets its own stack instance. No HA; Cloud SQL via Unix socket `/cloudsql/…`. Agent module adds a small VPC for copilot Direct VPC egress (no Serverless VPC Access connector). Agent + copilot share a global HTTPS LB + static IP + managed cert (IAP).
