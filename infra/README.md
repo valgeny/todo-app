@@ -65,11 +65,22 @@ Before apply:
 1. Ensure Cloud Identity (or Workspace) is linked to the GCP org and you have a directory user on the org domain.
 2. Create an **OAuth 2.0 Web client** (APIs & Services → Credentials). Redirect URI: `https://iap.googleapis.com/v1/oauth/clientIds/<CLIENT_ID>:handleRedirect`.
 3. Set `iap_oauth_client_*` and `iap_members` (org users only) in **stack** tfvars (`nonprod.tfvars`); re-apply stack (also enables `compute` / `iap` / `aiplatform`).
-4. Copy stack `iap_*` outputs into env tfvars; set per-env `agent_iap_host`.
-5. After env apply: DNS **A** for `agent_iap_host` → `terraform -chdir=env output -raw agent_iap_ip`.
+4. Copy stack `iap_*` outputs into env tfvars; set per-env `agent_iap_host` and `copilot_host`.
+5. DNS **A** for both hosts → `terraform -chdir=env output -raw agent_iap_ip` (before the managed cert can go ACTIVE).
 
-Public URL: `agent_iap_url`. CI only pushes the agent image. Domain WHOIS for Cloud Domains registrations should stay **REDACTED_CONTACT_DATA** (not public registrant email).
+Public URLs: `agent_iap_url` (Agent Server API), `copilot_url` (CopilotKit). Both share one LB IP + IAP.
+
+### CopilotKit copilot
+
+Required `copilot_host` (e.g. `copilot.valeriangeny.dev`). Same HTTPS LB/IAP. Browser stays on `copilot.*` (`/api/copilotkit`); Next.js runtime calls the Agent Server `run.app` URL with a Google ID token (copilot SA is `roles/run.invoker`). Agent ingress is **internal + Cloud Load Balancing** (not public `run.app`); copilot uses **Direct VPC egress** (`ALL_TRAFFIC` + Private Google Access on a dedicated `/24`) so that call is treated as internal.
+
+```bash
+docker build -f copilot/Dockerfile -t "$(terraform -chdir=infra/env output -raw copilot_image)" .
+docker push "$(terraform -chdir=infra/env output -raw copilot_image)"
+```
+
+Domain WHOIS for Cloud Domains registrations should stay **REDACTED_CONTACT_DATA** (not public registrant email).
 
 ## Cost
 
-One micro SQL instance per GCP project for shared nonprod envs; a dedicated prod GCP project gets its own stack instance. No HA, no VPC connector (Cloud Run Unix socket `/cloudsql/…`). Agent adds a global HTTPS LB + static IP + managed cert (IAP).
+One micro SQL instance per GCP project for shared nonprod envs; a dedicated prod GCP project gets its own stack instance. No HA; Cloud SQL via Unix socket `/cloudsql/…`. Agent module adds a small VPC for copilot Direct VPC egress (no Serverless VPC Access connector). Agent + copilot share a global HTTPS LB + static IP + managed cert (IAP).

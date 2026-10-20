@@ -1,10 +1,20 @@
 # -----------------------------------------------------------------------------
-# modules/agent — LangGraph API on Cloud Run, fronted by HTTPS LB + IAP
+# modules/agent — LangGraph API + CopilotKit copilot behind HTTPS LB + IAP
 #
 # Access: browser Google login via IAP → LB → Cloud Run (not public run.app).
 # Runtime uses Vertex ADC (roles/aiplatform.user) + TODO_MCP_URL.
 # LangGraph API needs Redis + Postgres — sandbox uses Cloud Run sidecars.
+#
+# Copilot (copilot_host + copilot_image): same LB IP + IAP, serves CopilotKit.
+# Browser ↔ copilot only; Next.js runtime → agent run.app with ID token (IAM).
+# Agent ingress is LB + VPC only; copilot reaches it via Direct VPC egress
+# (ALL_TRAFFIC + Private Google Access) so the call is treated as internal.
 # -----------------------------------------------------------------------------
+
+locals {
+  cert_hosts       = sort([var.iap_host, var.copilot_host])
+  cert_fingerprint = substr(md5(join(",", local.cert_hosts)), 0, 8)
+}
 
 data "google_project" "current" {
   project_id = var.project_id
@@ -53,20 +63,28 @@ locals {
     # LangGraph API requires Redis + Postgres (sidecars share localhost).
     REDIS_URI    = "redis://127.0.0.1:6379"
     POSTGRES_URI = "postgres://postgres:postgres@127.0.0.1:5432/postgres?sslmode=disable"
-    # Licensed langgraph-api image needs LangSmith (dev) or LANGGRAPH_CLOUD_LICENSE_KEY.
-    LANGSMITH_API_KEY = var.langsmith_api_key
   }
+}
+
+resource "google_secret_manager_secret_iam_member" "agent_accessor" {
+  for_each = var.secret_resources
+
+  secret_id = each.value.id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.agent.email}"
 }
 
 resource "google_cloud_run_v2_service" "agent" {
   depends_on = [
     google_artifact_registry_repository_iam_member.agent_reader,
     google_project_iam_member.agent_aiplatform_user,
+    google_secret_manager_secret_iam_member.agent_accessor,
   ]
 
   name     = "${var.prefix}-agent"
   location = var.region
-  # Only reachable via the HTTPS load balancer (IAP), not the run.app URL.
+  # LB (IAP browsers) + VPC-internal only — not public run.app from the internet.
+  # Copilot reaches this via Direct VPC egress (see copilot vpc_access below).
   ingress = "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER"
   labels  = var.labels
 
@@ -97,6 +115,19 @@ resource "google_cloud_run_v2_service" "agent" {
         content {
           name  = env.key
           value = env.value
+        }
+      }
+
+      dynamic "env" {
+        for_each = var.secret_resources
+        content {
+          name = env.key
+          value_source {
+            secret_key_ref {
+              secret  = env.value.secret_id
+              version = "latest"
+            }
+          }
         }
       }
 
@@ -203,6 +234,158 @@ resource "google_cloud_run_v2_service_iam_member" "deploy_invoker" {
   member   = each.value
 }
 
+# CopilotKit runtime (copilot) calls Agent Server with a Google ID token.
+resource "google_cloud_run_v2_service_iam_member" "copilot_invokes_agent" {
+  name     = google_cloud_run_v2_service.agent.name
+  location = google_cloud_run_v2_service.agent.location
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.copilot.email}"
+}
+
+# -----------------------------------------------------------------------------
+# VPC for copilot → agent (Direct VPC egress; no Serverless VPC Access connector)
+# -----------------------------------------------------------------------------
+
+resource "google_compute_network" "agent" {
+  name                    = "${var.prefix}-agent"
+  auto_create_subnetworks = false
+  routing_mode            = "REGIONAL"
+}
+
+# /24 (≥ /26 required for Direct VPC). Private Google Access so run.app is
+# reached privately when copilot egress is ALL_TRAFFIC.
+resource "google_compute_subnetwork" "agent" {
+  name                     = "${var.prefix}-agent"
+  ip_cidr_range            = var.vpc_subnet_cidr
+  region                   = var.region
+  network                  = google_compute_network.agent.id
+  private_ip_google_access = true
+}
+
+# Cloud Run service agent needs subnet use for Direct VPC egress.
+resource "google_compute_subnetwork_iam_member" "run_network_user" {
+  project    = var.project_id
+  region     = var.region
+  subnetwork = google_compute_subnetwork.agent.name
+  role       = "roles/compute.networkUser"
+  member     = "serviceAccount:service-${data.google_project.current.number}@serverless-robot-prod.iam.gserviceaccount.com"
+}
+
+# -----------------------------------------------------------------------------
+# CopilotKit copilot (Cloud Run)
+# -----------------------------------------------------------------------------
+
+resource "google_service_account" "copilot" {
+  account_id   = "${var.prefix}-copilot"
+  display_name = "Todo CopilotKit copilot (${var.environment})"
+}
+
+resource "google_artifact_registry_repository_iam_member" "copilot_reader" {
+  location   = var.artifact_registry_location
+  repository = var.artifact_registry_name
+  role       = "roles/artifactregistry.reader"
+  member     = "serviceAccount:${google_service_account.copilot.email}"
+}
+
+resource "google_service_account_iam_member" "deploy_acts_as_copilot" {
+  for_each = toset(var.deploy_members)
+
+  service_account_id = google_service_account.copilot.name
+  role               = "roles/iam.serviceAccountUser"
+  member             = each.value
+}
+
+resource "google_cloud_run_v2_service" "copilot" {
+  depends_on = [
+    google_artifact_registry_repository_iam_member.copilot_reader,
+    google_compute_subnetwork_iam_member.run_network_user,
+  ]
+
+  name     = "${var.prefix}-copilot"
+  location = var.region
+  ingress  = "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER"
+  labels   = var.labels
+
+  deletion_protection = false
+
+  template {
+    service_account = google_service_account.copilot.email
+    labels          = var.labels
+
+    scaling {
+      min_instance_count = 0
+      max_instance_count = 2
+    }
+
+    # Route agent run.app calls through the VPC so agent INTERNAL_LOAD_BALANCER
+    # ingress treats them as internal (Private Google Access on the subnet).
+    vpc_access {
+      egress = "ALL_TRAFFIC"
+      network_interfaces {
+        network    = google_compute_network.agent.id
+        subnetwork = google_compute_subnetwork.agent.id
+      }
+    }
+
+    containers {
+      name  = "copilot"
+      image = var.copilot_image
+
+      ports {
+        container_port = var.port
+      }
+
+      # CopilotKit runtime (server-side) → Agent Server Cloud Run URL + ID token.
+      env {
+        name  = "LANGGRAPH_URL"
+        value = google_cloud_run_v2_service.agent.uri
+      }
+      env {
+        name  = "LANGGRAPH_GRAPH_ID"
+        value = var.copilot_graph_id
+      }
+
+      resources {
+        limits = {
+          cpu    = "1"
+          memory = "1Gi"
+        }
+      }
+    }
+  }
+
+  traffic {
+    type    = "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST"
+    percent = 100
+  }
+
+  lifecycle {
+    ignore_changes = [
+      client,
+      client_version,
+      scaling,
+    ]
+  }
+}
+
+resource "google_cloud_run_v2_service_iam_member" "iap_invoker_copilot" {
+  depends_on = [google_project_service_identity.iap]
+
+  name     = google_cloud_run_v2_service.copilot.name
+  location = google_cloud_run_v2_service.copilot.location
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_project_service_identity.iap.email}"
+}
+
+resource "google_cloud_run_v2_service_iam_member" "deploy_invoker_copilot" {
+  for_each = toset(var.deploy_members)
+
+  name     = google_cloud_run_v2_service.copilot.name
+  location = google_cloud_run_v2_service.copilot.location
+  role     = "roles/run.invoker"
+  member   = each.value
+}
+
 # -----------------------------------------------------------------------------
 # External HTTPS load balancer + IAP
 # -----------------------------------------------------------------------------
@@ -214,6 +397,16 @@ resource "google_compute_region_network_endpoint_group" "agent" {
 
   cloud_run {
     service = google_cloud_run_v2_service.agent.name
+  }
+}
+
+resource "google_compute_region_network_endpoint_group" "copilot" {
+  name                  = "${var.prefix}-copilot-neg"
+  network_endpoint_type = "SERVERLESS"
+  region                = var.region
+
+  cloud_run {
+    service = google_cloud_run_v2_service.copilot.name
   }
 }
 
@@ -234,10 +427,35 @@ resource "google_compute_backend_service" "agent" {
   }
 }
 
+resource "google_compute_backend_service" "copilot" {
+  name                  = "${var.prefix}-copilot-bes"
+  protocol              = "HTTP"
+  load_balancing_scheme = "EXTERNAL_MANAGED"
+  enable_cdn            = false
+
+  backend {
+    group = google_compute_region_network_endpoint_group.copilot.id
+  }
+
+  iap {
+    enabled              = true
+    oauth2_client_id     = var.iap_oauth_client_id
+    oauth2_client_secret = var.iap_oauth_client_secret
+  }
+}
+
 resource "google_iap_web_backend_service_iam_member" "access" {
   for_each = toset(var.iap_members)
 
   web_backend_service = google_compute_backend_service.agent.name
+  role                = "roles/iap.httpsResourceAccessor"
+  member              = each.value
+}
+
+resource "google_iap_web_backend_service_iam_member" "access_copilot" {
+  for_each = toset(var.iap_members)
+
+  web_backend_service = google_compute_backend_service.copilot.name
   role                = "roles/iap.httpsResourceAccessor"
   member              = each.value
 }
@@ -251,18 +469,29 @@ resource "google_compute_url_map" "agent" {
     path_matcher = "agent"
   }
 
+  host_rule {
+    hosts        = [var.copilot_host]
+    path_matcher = "copilot"
+  }
+
   path_matcher {
     name            = "agent"
     default_service = google_compute_backend_service.agent.id
   }
+
+  path_matcher {
+    name            = "copilot"
+    default_service = google_compute_backend_service.copilot.id
+  }
 }
 
 resource "google_compute_managed_ssl_certificate" "agent" {
-  # Name must change when domain changes (create_before_destroy + unique name).
-  name = "${var.prefix}-agent-cert-${substr(md5(var.iap_host), 0, 8)}"
+  # Managed certs are immutable and names must be unique: the domain fingerprint
+  # gives create_before_destroy a fresh name whenever hosts change.
+  name = "${var.prefix}-agent-cert-${local.cert_fingerprint}"
 
   managed {
-    domains = [var.iap_host]
+    domains = local.cert_hosts
   }
 
   lifecycle {

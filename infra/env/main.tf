@@ -23,11 +23,22 @@ locals {
 
   managed_secrets = merge(
     {
-      CORS_ORIGINS = local.cors_origins
-      DB_PASSWORD  = module.sql_database.db_password
+      CORS_ORIGINS      = local.cors_origins
+      DB_PASSWORD       = module.sql_database.db_password
+      LANGSMITH_API_KEY = var.agent_langsmith_api_key
     },
     var.secret_env,
   )
+
+  # API gets app secrets; agent gets LangSmith only (not mounted on the API service).
+  api_secret_resources = {
+    for k, v in module.secrets.secret_resources : k => v
+    if k != "LANGSMITH_API_KEY"
+  }
+  agent_secret_resources = {
+    for k, v in module.secrets.secret_resources : k => v
+    if k == "LANGSMITH_API_KEY"
+  }
 
   image = var.image != "" ? var.image : (
     "${var.region}-docker.pkg.dev/${var.project_id}/${var.artifact_registry_repository_id}/${local.prefix}-api:latest"
@@ -39,6 +50,10 @@ locals {
 
   agent_image = var.agent_image != "" ? var.agent_image : (
     "${var.region}-docker.pkg.dev/${var.project_id}/${var.artifact_registry_repository_id}/${local.prefix}-agent:latest"
+  )
+
+  copilot_image = var.copilot_image != "" ? var.copilot_image : (
+    "${var.region}-docker.pkg.dev/${var.project_id}/${var.artifact_registry_repository_id}/${local.prefix}-copilot:latest"
   )
 }
 
@@ -72,7 +87,7 @@ module "apis" {
   image                      = local.image
   artifact_registry_location = var.artifact_registry_location
   artifact_registry_name     = var.artifact_registry_name
-  secret_resources           = module.secrets.secret_resources
+  secret_resources           = local.api_secret_resources
   deploy_members = [
     "serviceAccount:${var.deploy_sa_email}",
   ]
@@ -112,7 +127,7 @@ module "mcp" {
 module "agent" {
   source = "../modules/agent"
 
-  depends_on = [module.mcp]
+  depends_on = [module.mcp, module.secrets]
 
   project_id                 = var.project_id
   prefix                     = local.prefix
@@ -123,15 +138,17 @@ module "agent" {
   mcp_endpoint               = module.mcp.mcp_endpoint
   artifact_registry_location = var.artifact_registry_location
   artifact_registry_name     = var.artifact_registry_name
+  secret_resources           = local.agent_secret_resources
   deploy_members = [
     "serviceAccount:${var.deploy_sa_email}",
   ]
 
   iap_host                = var.agent_iap_host
+  copilot_host            = var.copilot_host
+  copilot_image           = local.copilot_image
   iap_oauth_client_id     = var.iap_oauth_client_id
   iap_oauth_client_secret = var.iap_oauth_client_secret
   iap_members             = var.iap_members
-  langsmith_api_key       = var.agent_langsmith_api_key
 }
 
 module "frontends" {

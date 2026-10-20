@@ -68,7 +68,26 @@ variable "port" {
 
 variable "iap_host" {
   type        = string
-  description = "Public hostname for the IAP HTTPS load balancer (DNS A → static IP)."
+  description = "Public hostname for the Agent Server (DNS A → static IP)."
+}
+
+variable "copilot_host" {
+  type        = string
+  description = <<-EOT
+    Public hostname for the CopilotKit copilot (DNS A → same LB IP as iap_host).
+    Browser stays on this host (/api/copilotkit); runtime calls Agent Server IAM.
+  EOT
+}
+
+variable "copilot_image" {
+  type        = string
+  description = "Full container image URI for the copilot."
+}
+
+variable "copilot_graph_id" {
+  type        = string
+  description = "LANGGRAPH_GRAPH_ID / CopilotKit agent key (must match langgraph.json)."
+  default     = "todo_agent"
 }
 
 variable "iap_oauth_client_id" {
@@ -90,8 +109,16 @@ variable "iap_members" {
   EOT
 }
 
-variable "langsmith_api_key" {
+variable "secret_resources" {
+  type = map(object({
+    id        = string
+    secret_id = string
+  }))
+  description = "Secrets to mount as Cloud Run env (e.g. LANGSMITH_API_KEY) and grant secretAccessor."
+}
+
+variable "vpc_subnet_cidr" {
   type        = string
-  description = "LANGSMITH_API_KEY — required by the licensed langgraph-api image for self-host."
-  sensitive   = true
+  description = "IPv4 CIDR for the Direct VPC egress subnet (must be /26 or larger)."
+  default     = "10.90.0.0/24"
 }

@@ -97,12 +97,23 @@ variable "agent_image" {
 
 variable "agent_iap_host" {
   type        = string
-  description = "DNS hostname for the agent IAP HTTPS load balancer (e.g. agent-sandbox.example.com)."
+  description = "DNS hostname for the agent IAP HTTPS load balancer (e.g. agent.example.com)."
+}
+
+variable "copilot_host" {
+  type        = string
+  description = "DNS hostname for the CopilotKit copilot on the same LB IP (e.g. copilot.example.com)."
+}
+
+variable "copilot_image" {
+  type        = string
+  description = "Full container image URI for the copilot. Empty = default …/{prefix}-copilot:latest."
+  default     = ""
 }
 
 variable "agent_langsmith_api_key" {
   type        = string
-  description = "LangSmith API key for the licensed LangGraph API image (sandbox/dev self-host)."
+  description = "LangSmith API key — stored in Secret Manager and mounted on the agent Cloud Run service."
   sensitive   = true
 }
 

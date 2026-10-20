@@ -24,10 +24,25 @@ output "iap_url" {
 
 output "iap_ip" {
   value       = google_compute_global_address.agent.address
-  description = "Global HTTPS LB IP — point DNS A for iap_host here."
+  description = "Global HTTPS LB IP — point DNS A for iap_host / copilot_host here."
 }
 
 output "iap_host" {
   value       = var.iap_host
-  description = "Configured IAP hostname."
+  description = "Configured Agent Server IAP hostname."
+}
+
+output "copilot_url" {
+  value       = "https://${var.copilot_host}"
+  description = "Public CopilotKit copilot URL behind IAP."
+}
+
+output "copilot_host" {
+  value       = var.copilot_host
+  description = "Configured copilot hostname."
+}
+
+output "copilot_service_name" {
+  value       = google_cloud_run_v2_service.copilot.name
+  description = "Cloud Run copilot service name."
 }
