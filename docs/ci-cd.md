@@ -80,7 +80,7 @@ terraform -chdir=env output -raw mcp_endpoint
 | `API_CLOUD_RUN_SERVICE` / `API_IMAGE_NAME` | `todo-sandbox-api` |
 | `MCP_CLOUD_RUN_SERVICE` / `MCP_IMAGE_NAME` | `todo-sandbox-mcp` |
 | `AGENT_CLOUD_RUN_SERVICE` / `AGENT_IMAGE_NAME` | `todo-sandbox-agent` |
-| `COPILOT_CLOUD_RUN_SERVICE` / `COPILOT_IMAGE_NAME` | `todo-sandbox-copilot` (optional; workflow defaults to this) |
+| `COPILOT_CLOUD_RUN_SERVICE` / `COPILOT_IMAGE_NAME` | `todo-sandbox-copilot` |
 
 3. You do **not** need `GCP_SA_KEY`.
 4. Push any branch or **Actions → Deploy GCP → Run workflow**.

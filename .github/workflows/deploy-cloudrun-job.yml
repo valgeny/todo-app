@@ -4,7 +4,6 @@ name: Deploy Cloud Run job
 # Runtime env, IAM, and ingress stay in Terraform; this job does not touch them.
 # Callers pass environment-scoped *var names*; this job reads vars.* after
 # attaching the GitHub Environment (required for sandbox WIF + service names).
-# Docker: Dockerfile at <workdir>/Dockerfile, build context = workdir.
 
 on:
   workflow_call:
@@ -13,10 +12,15 @@ on:
         description: GitHub Environment (e.g. sandbox)
         type: string
         required: true
-      workdir:
-        description: Service directory (Dockerfile + build context)
+      dockerfile:
+        description: Path to Dockerfile (repo-relative)
         type: string
         required: true
+      context:
+        description: Docker build context (repo root for yarn workspaces)
+        type: string
+        required: false
+        default: '.'
       image_name_var:
         description: Environment var holding the AR image name (e.g. API_IMAGE_NAME)
         type: string
@@ -89,10 +93,10 @@ jobs:
           IMAGE: ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/${{ env.IMAGE_NAME }}
         run: |
           set -euo pipefail
-          docker build --platform linux/amd64 -f "${{ inputs.workdir }}/Dockerfile" \
+          docker build --platform linux/amd64 -f "${{ inputs.dockerfile }}" \
             -t "${IMAGE}:${GITHUB_SHA}" \
             -t "${IMAGE}:latest" \
-            "${{ inputs.workdir }}"
+            "${{ inputs.context }}"
           docker push "${IMAGE}:${GITHUB_SHA}"
           docker push "${IMAGE}:latest"
           echo "image_ref=${IMAGE}:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"

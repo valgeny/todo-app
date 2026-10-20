@@ -27,7 +27,7 @@ jobs:
       id-token: write
     with:
       environment: sandbox
-      workdir: server
+      dockerfile: server/Dockerfile
       image_name_var: API_IMAGE_NAME
       service_name_var: API_CLOUD_RUN_SERVICE
 
@@ -39,7 +39,7 @@ jobs:
       id-token: write
     with:
       environment: sandbox
-      workdir: mcp
+      dockerfile: mcp/Dockerfile
       image_name_var: MCP_IMAGE_NAME
       service_name_var: MCP_CLOUD_RUN_SERVICE
 
@@ -51,7 +51,8 @@ jobs:
       id-token: write
     with:
       environment: sandbox
-      workdir: agent
+      dockerfile: agent/Dockerfile
+      context: agent
       image_name_var: AGENT_IMAGE_NAME
       service_name_var: AGENT_CLOUD_RUN_SERVICE
 
@@ -63,7 +64,7 @@ jobs:
       id-token: write
     with:
       environment: sandbox
-      workdir: copilot
+      dockerfile: copilot/Dockerfile
       image_name_var: COPILOT_IMAGE_NAME
       service_name_var: COPILOT_CLOUD_RUN_SERVICE
 
