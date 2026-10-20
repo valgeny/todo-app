@@ -19,6 +19,8 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=8080
 ENV HOSTNAME=0.0.0.0
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
+# public/ may be empty (tracked via .gitkeep); ensure the path exists for Next.
+RUN mkdir -p ./copilot/public
 COPY --from=build /app/copilot/public ./copilot/public
 COPY --from=build --chown=nextjs:nodejs /app/copilot/.next/standalone ./
 COPY --from=build --chown=nextjs:nodejs /app/copilot/.next/static ./copilot/.next/static
