@@ -30,5 +30,5 @@ iap_members = [
 secret_env = {}
 
 agent_iap_host = "agent.example.com"
-agent_ui_host  = "ui.example.com"
+copilot_host   = "copilot.example.com"
 agent_langsmith_api_key = "lsv2_pt_xxxx"

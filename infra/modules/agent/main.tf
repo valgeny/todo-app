@@ -1,16 +1,16 @@
 # -----------------------------------------------------------------------------
-# modules/agent — LangGraph API + CopilotKit UI behind HTTPS LB + IAP
+# modules/agent — LangGraph API + CopilotKit copilot behind HTTPS LB + IAP
 #
 # Access: browser Google login via IAP → LB → Cloud Run (not public run.app).
 # Runtime uses Vertex ADC (roles/aiplatform.user) + TODO_MCP_URL.
 # LangGraph API needs Redis + Postgres — sandbox uses Cloud Run sidecars.
 #
-# UI (ui_host + ui_image): same LB IP + IAP, host ui.* serves CopilotKit.
-# Browser ↔ ui only; Next.js runtime → agent Cloud Run with ID token (IAM).
+# Copilot (copilot_host + copilot_image): same LB IP + IAP, serves CopilotKit.
+# Browser ↔ copilot only; Next.js runtime → agent Cloud Run with ID token (IAM).
 # -----------------------------------------------------------------------------
 
 locals {
-  cert_hosts       = sort([var.iap_host, var.ui_host])
+  cert_hosts       = sort([var.iap_host, var.copilot_host])
   cert_fingerprint = substr(md5(join(",", local.cert_hosts)), 0, 8)
 }
 
@@ -81,7 +81,7 @@ resource "google_cloud_run_v2_service" "agent" {
 
   name     = "${var.prefix}-agent"
   location = var.region
-  # ALL + IAM (no allUsers): IAP LB for browsers; UI Cloud Run invokes via ID token.
+  # ALL + IAM (no allUsers): IAP LB for browsers; copilot Cloud Run invokes via ID token.
   ingress = "INGRESS_TRAFFIC_ALL"
   labels  = var.labels
 
@@ -231,42 +231,42 @@ resource "google_cloud_run_v2_service_iam_member" "deploy_invoker" {
   member   = each.value
 }
 
-# CopilotKit UI runtime calls Agent Server with a Google ID token.
-resource "google_cloud_run_v2_service_iam_member" "ui_invokes_agent" {
+# CopilotKit runtime (copilot) calls Agent Server with a Google ID token.
+resource "google_cloud_run_v2_service_iam_member" "copilot_invokes_agent" {
   name     = google_cloud_run_v2_service.agent.name
   location = google_cloud_run_v2_service.agent.location
   role     = "roles/run.invoker"
-  member   = "serviceAccount:${google_service_account.agent_ui.email}"
+  member   = "serviceAccount:${google_service_account.copilot.email}"
 }
 
 # -----------------------------------------------------------------------------
-# CopilotKit agent-ui (Cloud Run)
+# CopilotKit copilot (Cloud Run)
 # -----------------------------------------------------------------------------
 
-resource "google_service_account" "agent_ui" {
-  account_id   = "${var.prefix}-agent-ui"
-  display_name = "Todo agent Chat UI (${var.environment})"
+resource "google_service_account" "copilot" {
+  account_id   = "${var.prefix}-copilot"
+  display_name = "Todo CopilotKit copilot (${var.environment})"
 }
 
-resource "google_artifact_registry_repository_iam_member" "agent_ui_reader" {
+resource "google_artifact_registry_repository_iam_member" "copilot_reader" {
   location   = var.artifact_registry_location
   repository = var.artifact_registry_name
   role       = "roles/artifactregistry.reader"
-  member     = "serviceAccount:${google_service_account.agent_ui.email}"
+  member     = "serviceAccount:${google_service_account.copilot.email}"
 }
 
-resource "google_service_account_iam_member" "deploy_acts_as_ui" {
+resource "google_service_account_iam_member" "deploy_acts_as_copilot" {
   for_each = toset(var.deploy_members)
 
-  service_account_id = google_service_account.agent_ui.name
+  service_account_id = google_service_account.copilot.name
   role               = "roles/iam.serviceAccountUser"
   member             = each.value
 }
 
-resource "google_cloud_run_v2_service" "agent_ui" {
-  depends_on = [google_artifact_registry_repository_iam_member.agent_ui_reader]
+resource "google_cloud_run_v2_service" "copilot" {
+  depends_on = [google_artifact_registry_repository_iam_member.copilot_reader]
 
-  name     = "${var.prefix}-agent-ui"
+  name     = "${var.prefix}-copilot"
   location = var.region
   ingress  = "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER"
   labels   = var.labels
@@ -274,7 +274,7 @@ resource "google_cloud_run_v2_service" "agent_ui" {
   deletion_protection = false
 
   template {
-    service_account = google_service_account.agent_ui.email
+    service_account = google_service_account.copilot.email
     labels          = var.labels
 
     scaling {
@@ -283,8 +283,8 @@ resource "google_cloud_run_v2_service" "agent_ui" {
     }
 
     containers {
-      name  = "agent-ui"
-      image = var.ui_image
+      name  = "copilot"
+      image = var.copilot_image
 
       ports {
         container_port = var.port
@@ -297,7 +297,7 @@ resource "google_cloud_run_v2_service" "agent_ui" {
       }
       env {
         name  = "LANGGRAPH_GRAPH_ID"
-        value = var.ui_assistant_id
+        value = var.copilot_graph_id
       }
 
       resources {
@@ -323,20 +323,20 @@ resource "google_cloud_run_v2_service" "agent_ui" {
   }
 }
 
-resource "google_cloud_run_v2_service_iam_member" "iap_invoker_ui" {
+resource "google_cloud_run_v2_service_iam_member" "iap_invoker_copilot" {
   depends_on = [google_project_service_identity.iap]
 
-  name     = google_cloud_run_v2_service.agent_ui.name
-  location = google_cloud_run_v2_service.agent_ui.location
+  name     = google_cloud_run_v2_service.copilot.name
+  location = google_cloud_run_v2_service.copilot.location
   role     = "roles/run.invoker"
   member   = "serviceAccount:${google_project_service_identity.iap.email}"
 }
 
-resource "google_cloud_run_v2_service_iam_member" "deploy_invoker_ui" {
+resource "google_cloud_run_v2_service_iam_member" "deploy_invoker_copilot" {
   for_each = toset(var.deploy_members)
 
-  name     = google_cloud_run_v2_service.agent_ui.name
-  location = google_cloud_run_v2_service.agent_ui.location
+  name     = google_cloud_run_v2_service.copilot.name
+  location = google_cloud_run_v2_service.copilot.location
   role     = "roles/run.invoker"
   member   = each.value
 }
@@ -355,13 +355,13 @@ resource "google_compute_region_network_endpoint_group" "agent" {
   }
 }
 
-resource "google_compute_region_network_endpoint_group" "agent_ui" {
-  name                  = "${var.prefix}-agent-ui-neg"
+resource "google_compute_region_network_endpoint_group" "copilot" {
+  name                  = "${var.prefix}-copilot-neg"
   network_endpoint_type = "SERVERLESS"
   region                = var.region
 
   cloud_run {
-    service = google_cloud_run_v2_service.agent_ui.name
+    service = google_cloud_run_v2_service.copilot.name
   }
 }
 
@@ -382,14 +382,14 @@ resource "google_compute_backend_service" "agent" {
   }
 }
 
-resource "google_compute_backend_service" "agent_ui" {
-  name                  = "${var.prefix}-agent-ui-bes"
+resource "google_compute_backend_service" "copilot" {
+  name                  = "${var.prefix}-copilot-bes"
   protocol              = "HTTP"
   load_balancing_scheme = "EXTERNAL_MANAGED"
   enable_cdn            = false
 
   backend {
-    group = google_compute_region_network_endpoint_group.agent_ui.id
+    group = google_compute_region_network_endpoint_group.copilot.id
   }
 
   iap {
@@ -407,10 +407,10 @@ resource "google_iap_web_backend_service_iam_member" "access" {
   member              = each.value
 }
 
-resource "google_iap_web_backend_service_iam_member" "access_ui" {
+resource "google_iap_web_backend_service_iam_member" "access_copilot" {
   for_each = toset(var.iap_members)
 
-  web_backend_service = google_compute_backend_service.agent_ui.name
+  web_backend_service = google_compute_backend_service.copilot.name
   role                = "roles/iap.httpsResourceAccessor"
   member              = each.value
 }
@@ -425,8 +425,8 @@ resource "google_compute_url_map" "agent" {
   }
 
   host_rule {
-    hosts        = [var.ui_host]
-    path_matcher = "ui"
+    hosts        = [var.copilot_host]
+    path_matcher = "copilot"
   }
 
   path_matcher {
@@ -435,14 +435,15 @@ resource "google_compute_url_map" "agent" {
   }
 
   path_matcher {
-    name            = "ui"
-    default_service = google_compute_backend_service.agent_ui.id
+    name            = "copilot"
+    default_service = google_compute_backend_service.copilot.id
   }
 }
 
 resource "google_compute_managed_ssl_certificate" "agent" {
-  # name_prefix so -replace / recreate always gets a unique name (same domains).
-  name_prefix = "${var.prefix}-agent-cert-${local.cert_fingerprint}-"
+  # Managed certs are immutable and names must be unique: the domain fingerprint
+  # gives create_before_destroy a fresh name whenever hosts change.
+  name = "${var.prefix}-agent-cert-${local.cert_fingerprint}"
 
   managed {
     domains = local.cert_hosts

@@ -100,14 +100,14 @@ variable "agent_iap_host" {
   description = "DNS hostname for the agent IAP HTTPS load balancer (e.g. agent.example.com)."
 }
 
-variable "agent_ui_host" {
+variable "copilot_host" {
   type        = string
-  description = "DNS hostname for CopilotKit agent-ui on the same LB IP (e.g. ui.example.com)."
+  description = "DNS hostname for the CopilotKit copilot on the same LB IP (e.g. copilot.example.com)."
 }
 
-variable "agent_ui_image" {
+variable "copilot_image" {
   type        = string
-  description = "Full container image URI for agent-ui. Empty = default …/{prefix}-agent-ui:latest."
+  description = "Full container image URI for the copilot. Empty = default …/{prefix}-copilot:latest."
   default     = ""
 }
 

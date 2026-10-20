@@ -24,18 +24,31 @@ function graphId(): string {
 
 async function buildHandler() {
   const url = deploymentUrl();
-  const propertyHeaders = await langGraphHeaders(url);
+  const authHeaders = await langGraphHeaders(url);
 
+  // Self-hosted Agent Server only (Cloud Run / local langgraph) — not LangGraph
+  // Platform. Do not pass a LangSmith key: the SDK would send it as x-api-key and
+  // may also pick LANGSMITH_API_KEY from the environment if this is left undefined.
   const runtimeInstance = new CopilotRuntime({
     agents: {
       todo_agent: new LangGraphAgent({
         deploymentUrl: url,
         graphId: graphId(),
-        langsmithApiKey: process.env.LANGSMITH_API_KEY,
-        ...(Object.keys(propertyHeaders).length > 0 ? { propertyHeaders } : {})
+        langsmithApiKey: null as unknown as string | undefined,
+        // Static headers only: the SDK lowercases them into defaultHeaders, and also
+        // passing headerFactory would send `authorization` twice ("Bearer a, Bearer a"),
+        // which Cloud Run rejects as an unverifiable token.
+        ...(Object.keys(authHeaders).length > 0 ? { propertyHeaders: authHeaders } : {})
       })
     },
-    runner: new InMemoryAgentRunner()
+    runner: new InMemoryAgentRunner(),
+    // The runtime forwards inbound `authorization` / `x-*` onto agent calls. Behind
+    // IAP those carry IAP's own tokens (Cloud Run prefers x-serverless-authorization),
+    // which would replace the copilot SA ID token and 401 at the agent.
+    forwardHeaders: {
+      deny: ['authorization', 'x-serverless-authorization'],
+      denyPrefixes: ['x-goog-']
+    }
   });
 
   return createCopilotRuntimeHandler({

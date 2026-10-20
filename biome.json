@@ -10,7 +10,7 @@
       "server/**",
       "web/**",
       "mcp/**",
-      "agent-ui/**",
+      "copilot/**",
       "tests/**",
       "playwright.config.ts",
       "package.json",

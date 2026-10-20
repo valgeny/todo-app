@@ -71,20 +71,20 @@ variable "iap_host" {
   description = "Public hostname for the Agent Server (DNS A → static IP)."
 }
 
-variable "ui_host" {
+variable "copilot_host" {
   type        = string
   description = <<-EOT
-    Public hostname for CopilotKit agent-ui (DNS A → same LB IP as iap_host).
+    Public hostname for the CopilotKit copilot (DNS A → same LB IP as iap_host).
     Browser stays on this host (/api/copilotkit); runtime calls Agent Server IAM.
   EOT
 }
 
-variable "ui_image" {
+variable "copilot_image" {
   type        = string
-  description = "Full container image URI for agent-ui."
+  description = "Full container image URI for the copilot."
 }
 
-variable "ui_assistant_id" {
+variable "copilot_graph_id" {
   type        = string
   description = "LANGGRAPH_GRAPH_ID / CopilotKit agent key (must match langgraph.json)."
   default     = "todo_agent"

@@ -258,8 +258,8 @@ jobs:
             --region="${GCP_REGION}" >&2 || true
           exit 1
 
-  deploy-agent-ui:
-    name: Agent UI build + deploy
+  deploy-copilot:
+    name: Copilot build + deploy
     needs: [deploy-agent]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -269,8 +269,8 @@ jobs:
       GCP_REGION: ${{ vars.GCP_REGION }}
       AR_REPO: ${{ vars.AR_REPO }}
       AGENT_CLOUD_RUN_SERVICE: ${{ vars.AGENT_CLOUD_RUN_SERVICE || 'todo-sandbox-agent' }}
-      AGENT_UI_CLOUD_RUN_SERVICE: ${{ vars.AGENT_UI_CLOUD_RUN_SERVICE || 'todo-sandbox-agent-ui' }}
-      AGENT_UI_IMAGE_NAME: ${{ vars.AGENT_UI_IMAGE_NAME || 'todo-sandbox-agent-ui' }}
+      COPILOT_CLOUD_RUN_SERVICE: ${{ vars.COPILOT_CLOUD_RUN_SERVICE || 'todo-sandbox-copilot' }}
+      COPILOT_IMAGE_NAME: ${{ vars.COPILOT_IMAGE_NAME || 'todo-sandbox-copilot' }}
       GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
       GCP_SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
     steps:
@@ -286,12 +286,12 @@ jobs:
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker "${GCP_REGION}-docker.pkg.dev" --quiet
 
-      - name: Build and push agent-ui image
+      - name: Build and push copilot image
         env:
-          IMAGE: ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/${{ env.AGENT_UI_IMAGE_NAME }}
+          IMAGE: ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/${{ env.COPILOT_IMAGE_NAME }}
         run: |
           set -euo pipefail
-          docker build --platform linux/amd64 -f agent-ui/Dockerfile \
+          docker build --platform linux/amd64 -f copilot/Dockerfile \
             -t "${IMAGE}:${GITHUB_SHA}" \
             -t "${IMAGE}:latest" \
             .
@@ -299,22 +299,22 @@ jobs:
           docker push "${IMAGE}:latest"
           echo "IMAGE_REF=${IMAGE}:${GITHUB_SHA}" >> "$GITHUB_ENV"
 
-      - name: Deploy Cloud Run agent-ui
+      - name: Deploy Cloud Run copilot
         run: |
           set -euo pipefail
           AGENT_URI=$(gcloud run services describe "${AGENT_CLOUD_RUN_SERVICE}" \
             --project="${GCP_PROJECT_ID}" \
             --region="${GCP_REGION}" \
             --format='value(status.url)')
-          gcloud run deploy "${AGENT_UI_CLOUD_RUN_SERVICE}" \
+          gcloud run deploy "${COPILOT_CLOUD_RUN_SERVICE}" \
             --project="${GCP_PROJECT_ID}" \
             --region="${GCP_REGION}" \
             --image="${IMAGE_REF}" \
             --update-env-vars="LANGGRAPH_URL=${AGENT_URI},LANGGRAPH_GRAPH_ID=todo_agent" \
             --quiet
-          echo "### Agent UI" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Copilot" >> "$GITHUB_STEP_SUMMARY"
           echo "- Image: \`${IMAGE_REF}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Public URL: Terraform output \`agent_ui_url\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Public URL: Terraform output \`copilot_url\`" >> "$GITHUB_STEP_SUMMARY"
 
   deploy-fe:
     name: Frontend build + upload

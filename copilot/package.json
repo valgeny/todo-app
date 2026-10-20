@@ -1,12 +1,12 @@
 {
-  "name": "agent-ui",
+  "name": "copilot",
   "version": "0.1.0",
   "private": true,
   "author": "Valerian Geny",
   "scripts": {
-    "dev": "next dev --turbopack --port 3001",
-    "build": "next build",
-    "start": "next start --port ${PORT:-3001}",
+    "dev": "NODE_ENV=development next dev --port 3001",
+    "build": "NODE_ENV=production next build",
+    "start": "NODE_ENV=production next start --port ${PORT:-3001}",
     "lint": "eslint"
   },
   "dependencies": {

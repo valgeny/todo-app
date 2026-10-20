@@ -7,7 +7,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: 'Todo agent',
-  description: 'CopilotKit UI over the LangGraph todo agent'
+  description: 'CopilotKit copilot over the LangGraph todo agent'
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

@@ -8,6 +8,7 @@ const nextConfig: NextConfig = {
   output: 'standalone',
   // Monorepo: include workspace root in file tracing.
   outputFileTracingRoot: path.join(__dirname, '..'),
+  // Local ADC fallback only; Cloud Run mints ID tokens via the metadata server.
   serverExternalPackages: ['google-auth-library']
 };
 
