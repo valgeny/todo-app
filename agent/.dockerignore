@@ -10,6 +10,7 @@ tests
 config/.env
 config/.env.local
 config/.env.local2sandbox
+config/.env.langsmith
 # Keep README.md — hatchling reads it during image install.
 .python-version
 uv.lock

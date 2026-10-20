@@ -1,0 +1,75 @@
+name: Deploy LangSmith
+
+# Deploys the agent to LangSmith Deployments (managed Agent Server) with
+# `langgraph deploy`. Independent of deploy-gcp.yml (self-hosted Cloud Run agent).
+# Config: GitHub Environment "langsmith" (see docs/ci-cd.md).
+
+on:
+  push:
+    paths:
+      - agent/**
+      - .github/workflows/deploy-langsmith.yml
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-langsmith-${{ github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-langsmith:
+    name: LangSmith agent deploy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    environment: langsmith
+    defaults:
+      run:
+        working-directory: agent
+    env:
+      LANGGRAPH_CLI_VERSION: "0.4.37"
+      LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
+      LANGSMITH_DEPLOYMENT_NAME: ${{ vars.LANGSMITH_DEPLOYMENT_NAME || 'todo-agent' }}
+      LANGSMITH_DEPLOYMENT_TYPE: ${{ vars.LANGSMITH_DEPLOYMENT_TYPE || 'serverless' }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Write deployment env
+        # Every non-reserved key becomes a deployment secret; LANGSMITH_* tracing
+        # vars are reserved and injected by the platform.
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          TODO_MCP_URL: ${{ vars.TODO_MCP_URL }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-2.5-flash' }}
+          AGENT_TZ: ${{ vars.AGENT_TZ }}
+        run: |
+          set -euo pipefail
+          for v in LANGSMITH_API_KEY GOOGLE_API_KEY TODO_MCP_URL; do
+            if [ -z "${!v:-}" ]; then echo "::error::${v} is not set in the langsmith environment"; exit 1; fi
+          done
+          umask 077
+          {
+            echo "GOOGLE_API_KEY=${GOOGLE_API_KEY}"
+            echo "TODO_MCP_URL=${TODO_MCP_URL}"
+            echo "GEMINI_MODEL=${GEMINI_MODEL}"
+            if [ -n "${AGENT_TZ}" ]; then echo "AGENT_TZ=${AGENT_TZ}"; fi
+          } > config/.env.langsmith
+
+      - name: langgraph deploy
+        run: |
+          set -euo pipefail
+          uvx --from "langgraph-cli==${LANGGRAPH_CLI_VERSION}" langgraph deploy \
+            -c langgraph.langsmith.json \
+            --name "${LANGSMITH_DEPLOYMENT_NAME}" \
+            --deployment-type "${LANGSMITH_DEPLOYMENT_TYPE}" \
+            --remote
+
+      - name: Summary
+        run: |
+          set -euo pipefail
+          echo "### LangSmith" >> "$GITHUB_STEP_SUMMARY"
+          uvx --from "langgraph-cli==${LANGGRAPH_CLI_VERSION}" langgraph deploy list \
+            --name-contains "${LANGSMITH_DEPLOYMENT_NAME}" >> "$GITHUB_STEP_SUMMARY"
