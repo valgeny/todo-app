@@ -1,0 +1,262 @@
+name: Deploy Cloud Run job
+
+# Reusable job: build → Artifact Registry → gcloud run deploy (+ optional smoke).
+# Callers pass environment-scoped *var names*; this job reads vars.* after
+# attaching the GitHub Environment (required for sandbox WIF + service names).
+
+on:
+  workflow_call:
+    inputs:
+      job_name:
+        description: Display name for the job in the Actions UI
+        type: string
+        required: true
+      environment:
+        description: GitHub Environment (e.g. sandbox)
+        type: string
+        required: true
+      dockerfile:
+        description: Path to Dockerfile (repo-relative)
+        type: string
+        required: true
+      context:
+        description: Docker build context directory
+        type: string
+        required: false
+        default: '.'
+      image_name_var:
+        description: Environment var holding the AR image name (e.g. API_IMAGE_NAME)
+        type: string
+        required: true
+      service_name_var:
+        description: Environment var holding the Cloud Run service name
+        type: string
+        required: true
+      image_name_fallback:
+        description: Used when image_name_var is unset
+        type: string
+        required: false
+        default: ''
+      service_name_fallback:
+        description: Used when service_name_var is unset
+        type: string
+        required: false
+        default: ''
+      allow_unauthenticated:
+        description: Pass --allow-unauthenticated on deploy
+        type: boolean
+        required: false
+        default: false
+      extra_env_vars:
+        description: Extra KEY=value pairs for --update-env-vars (comma-separated)
+        type: string
+        required: false
+        default: ''
+      source_service_name_var:
+        description: Optional env var naming a Cloud Run service whose URL is injected
+        type: string
+        required: false
+        default: ''
+      source_service_name_fallback:
+        type: string
+        required: false
+        default: ''
+      source_env_key:
+        description: Env key set to the source service URL (+ suffix)
+        type: string
+        required: false
+        default: ''
+      source_url_suffix:
+        description: Appended to the source service URL (e.g. /mcp)
+        type: string
+        required: false
+        default: ''
+      smoke:
+        description: none | health | ready
+        type: string
+        required: false
+        default: none
+      health_path:
+        type: string
+        required: false
+        default: /health
+      health_expect_code:
+        type: string
+        required: false
+        default: '204'
+      timeout_minutes:
+        type: number
+        required: false
+        default: 25
+      summary_title:
+        description: Heading for $GITHUB_STEP_SUMMARY (defaults to job_name)
+        type: string
+        required: false
+        default: ''
+    outputs:
+      service_uri:
+        description: Deployed Cloud Run service URL
+        value: ${{ jobs.deploy-cloudrun-job.outputs.service_uri }}
+      image_ref:
+        description: Pushed image reference (…:sha)
+        value: ${{ jobs.deploy-cloudrun-job.outputs.image_ref }}
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy-cloudrun-job:
+    name: ${{ inputs.job_name }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: ${{ fromJSON(inputs.timeout_minutes) }}
+    environment: ${{ inputs.environment }}
+    outputs:
+      service_uri: ${{ steps.deploy.outputs.service_uri }}
+      image_ref: ${{ steps.build.outputs.image_ref }}
+    env:
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      GCP_REGION: ${{ vars.GCP_REGION }}
+      AR_REPO: ${{ vars.AR_REPO }}
+      GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+      GCP_SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
+      IMAGE_NAME: ${{ vars[inputs.image_name_var] || inputs.image_name_fallback }}
+      SERVICE_NAME: ${{ vars[inputs.service_name_var] || inputs.service_name_fallback }}
+      # Avoid vars[''] when no source service is configured.
+      SOURCE_SERVICE_NAME: ${{ inputs.source_service_name_var != '' && vars[inputs.source_service_name_var] || inputs.source_service_name_fallback }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v3
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker "${GCP_REGION}-docker.pkg.dev" --quiet
+
+      - name: Resolve names
+        run: |
+          set -euo pipefail
+          for v in GCP_PROJECT_ID GCP_REGION AR_REPO GCP_WORKLOAD_IDENTITY_PROVIDER GCP_SERVICE_ACCOUNT IMAGE_NAME SERVICE_NAME; do
+            if [ -z "${!v:-}" ]; then
+              echo "::error::${v} is empty (check GitHub Environment '${{ inputs.environment }}' vars)"
+              exit 1
+            fi
+          done
+          echo "Image: ${IMAGE_NAME}"
+          echo "Service: ${SERVICE_NAME}"
+
+      - name: Resolve source service URL
+        id: source
+        if: ${{ inputs.source_env_key != '' }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SOURCE_SERVICE_NAME:-}" ]; then
+            echo "::error::source_env_key is set but source service name is empty"
+            exit 1
+          fi
+          URI=$(gcloud run services describe "${SOURCE_SERVICE_NAME}" \
+            --project="${GCP_PROJECT_ID}" \
+            --region="${GCP_REGION}" \
+            --format='value(status.url)')
+          VALUE="${URI}${{ inputs.source_url_suffix }}"
+          echo "value=${VALUE}" >> "$GITHUB_OUTPUT"
+          echo "Source ${{ inputs.source_env_key }}=${VALUE}"
+
+      - name: Build and push image
+        id: build
+        env:
+          IMAGE: ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/${{ env.IMAGE_NAME }}
+        run: |
+          set -euo pipefail
+          docker build --platform linux/amd64 -f "${{ inputs.dockerfile }}" \
+            -t "${IMAGE}:${GITHUB_SHA}" \
+            -t "${IMAGE}:latest" \
+            "${{ inputs.context }}"
+          docker push "${IMAGE}:${GITHUB_SHA}"
+          docker push "${IMAGE}:latest"
+          echo "image_ref=${IMAGE}:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy Cloud Run
+        id: deploy
+        env:
+          IMAGE_REF: ${{ steps.build.outputs.image_ref }}
+          SOURCE_VALUE: ${{ steps.source.outputs.value }}
+        run: |
+          set -euo pipefail
+          ARGS=(
+            run deploy "${SERVICE_NAME}"
+            --project="${GCP_PROJECT_ID}"
+            --region="${GCP_REGION}"
+            --image="${IMAGE_REF}"
+            --quiet
+          )
+          if [ "${{ inputs.allow_unauthenticated }}" = "true" ]; then
+            ARGS+=(--allow-unauthenticated)
+          fi
+
+          ENV_PAIRS=()
+          if [ -n "${{ inputs.source_env_key }}" ]; then
+            ENV_PAIRS+=("${{ inputs.source_env_key }}=${SOURCE_VALUE}")
+          fi
+          if [ -n "${{ inputs.extra_env_vars }}" ]; then
+            IFS=',' read -ra EXTRA <<< "${{ inputs.extra_env_vars }}"
+            for p in "${EXTRA[@]}"; do
+              [ -n "$p" ] && ENV_PAIRS+=("$p")
+            done
+          fi
+          if [ "${#ENV_PAIRS[@]}" -gt 0 ]; then
+            JOINED=$(IFS=,; echo "${ENV_PAIRS[*]}")
+            ARGS+=(--update-env-vars="${JOINED}")
+          fi
+
+          gcloud "${ARGS[@]}"
+
+          SERVICE_URI=$(gcloud run services describe "${SERVICE_NAME}" \
+            --project="${GCP_PROJECT_ID}" \
+            --region="${GCP_REGION}" \
+            --format='value(status.url)')
+          echo "service_uri=${SERVICE_URI}" >> "$GITHUB_OUTPUT"
+
+          TITLE="${{ inputs.summary_title }}"
+          TITLE="${TITLE:-${{ inputs.job_name }}}"
+          echo "### ${TITLE}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- ${SERVICE_URI}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Image: \`${IMAGE_REF}\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Smoke health
+        if: ${{ inputs.smoke == 'health' }}
+        env:
+          SERVICE_URI: ${{ steps.deploy.outputs.service_uri }}
+        run: |
+          set -euo pipefail
+          PATH_SUFFIX="${{ inputs.health_path }}"
+          EXPECT="${{ inputs.health_expect_code }}"
+          for i in $(seq 1 20); do
+            code=$(curl -sf -o /dev/null -w '%{http_code}' "${SERVICE_URI}${PATH_SUFFIX}" || echo 000)
+            [ "$code" = "$EXPECT" ] && exit 0
+            sleep 3
+          done
+          echo "Health check failed against ${SERVICE_URI}${PATH_SUFFIX}" >&2
+          exit 1
+
+      - name: Smoke Ready
+        if: ${{ inputs.smoke == 'ready' }}
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 30); do
+            ready=$(gcloud run services describe "${SERVICE_NAME}" \
+              --project="${GCP_PROJECT_ID}" \
+              --region="${GCP_REGION}" \
+              --format='value(status.conditions[0].status)' || echo Unknown)
+            [ "$ready" = "True" ] && exit 0
+            sleep 5
+          done
+          echo "Service did not become Ready" >&2
+          gcloud run services describe "${SERVICE_NAME}" \
+            --project="${GCP_PROJECT_ID}" \
+            --region="${GCP_REGION}" >&2 || true
+          exit 1

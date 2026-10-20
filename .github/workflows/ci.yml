@@ -18,8 +18,8 @@ permissions:
   id-token: write
 
 jobs:
-  build:
-    name: Build
+  lint:
+    name: Lint
     runs-on: ubuntu-24.04
     timeout-minutes: 15
 
@@ -299,7 +299,7 @@ jobs:
 
   deploy-reports:
     name: Deploy reports to GitHub Pages
-    needs: [build, test, openapi, publish-reports]
+    needs: [lint, test, openapi, publish-reports]
     if: ${{ always() && github.event_name == 'push' && needs.publish-reports.result == 'success' }}
     runs-on: ubuntu-24.04
     environment:
