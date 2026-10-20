@@ -2,12 +2,15 @@ FROM node:24-bookworm-slim
 
 WORKDIR /usr/src/app
 
-RUN corepack enable && corepack prepare yarn@1.22.22 --activate
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+RUN corepack enable
 
-COPY package.json yarn.lock ./
+# Root context: Yarn metadata lives at the repo root. No workspace: deps, so
+# only this workspace manifest is required. ts-node is a devDependency, so this
+# is not a --production focus.
+COPY package.json yarn.lock .yarnrc.yml ./
 COPY server/package.json server/package.json
-COPY web/package.json web/package.json
-RUN yarn install --frozen-lockfile
+RUN yarn workspaces focus server
 
 COPY . .
 

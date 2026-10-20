@@ -21,6 +21,14 @@ node_modules/
 *.tgz
 .yarn-integrity
 
+# Yarn 4 via Corepack. node-modules linker; do not commit the cache or a vendored binary.
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/sdks
+!.yarn/versions
+
 credentials
 .env
 .env.*

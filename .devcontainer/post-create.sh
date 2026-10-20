@@ -10,5 +10,5 @@ if [ ! -f web/config/.env.local ]; then
 fi
 
 corepack enable
-corepack prepare yarn@1.22.22 --activate
-yarn install --frozen-lockfile
+export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+yarn install --immutable

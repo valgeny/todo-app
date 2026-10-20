@@ -8,7 +8,7 @@ Run the API and UI in a GitHub Codespace — no local Node install required. Any
 2. **Code → Codespaces → Create codespace on `main`** (or another branch).
 3. Wait for the container to finish. `.devcontainer/post-create.sh` will:
    - Copy `server/config/.env.example` → `.env.local` and `web/config/.env.example` → `.env.local` when missing
-   - Enable Yarn classic and run `yarn install --frozen-lockfile`
+   - Enable Corepack and run `yarn install --immutable` (Yarn 4, from `packageManager`)
 
 The image is Node 24 (`mcr.microsoft.com/devcontainers/javascript-node:24`). `HOST=0.0.0.0` so forwarded ports accept connections. Ports **3000** (UI) and **8000** (API) are forwarded; the UI may open in the browser automatically.
 

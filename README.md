@@ -41,7 +41,7 @@ CI also uploads Allure and Playwright HTML as downloadable Actions artifacts (14
 - Local SQLite or Docker Postgres (`todo-db` + API image); Cloud Run uses Cloud SQL Postgres per env
 - GitHub Codespaces / devcontainer
 - MCP server (`yarn mcp`) — curated tools over the REST API ([docs](docs/mcp.md))
-- Biome lint/format; Node 24; Yarn classic workspaces
+- Biome lint/format; Node 24; Yarn 4 workspaces (Corepack, `node-modules` linker)
 
 **Quality**
 
@@ -51,7 +51,7 @@ CI also uploads Allure and Playwright HTML as downloadable Actions artifacts (14
 
 ## Install, run, and test
 
-Requires Node.js 24+ and Yarn classic. Copy/paste commands live in the guides below — use those pages, not this summary.
+Requires Node.js 24+ and Yarn 4 via Corepack (`corepack enable`, then `yarn`). Copy/paste commands live in the guides below — use those pages, not this summary.
 
 | Goal | Where | CLI you will find there |
 | --- | --- | --- |

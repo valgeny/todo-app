@@ -1,12 +1,17 @@
 # CopilotKit Next.js BFF. Build from repo root:
 #   docker build -f copilot/Dockerfile -t …/todo-sandbox-copilot:latest .
+#
+# Context stays the repo root: Yarn metadata is there, and Next traces files
+# from outputFileTracingRoot (the workspace root). typescript is a devDependency.
 
 # Root package.json engines require Node >=24.
 FROM node:24-bookworm-slim AS build
 WORKDIR /app
-COPY package.json yarn.lock ./
-COPY copilot/package.json ./copilot/
-RUN yarn install --frozen-lockfile --network-timeout 600000
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+RUN corepack enable
+COPY package.json yarn.lock .yarnrc.yml ./
+COPY copilot/package.json ./copilot/package.json
+RUN yarn workspaces focus copilot
 COPY copilot ./copilot
 WORKDIR /app/copilot
 ENV NEXT_TELEMETRY_DISABLED=1

@@ -50,6 +50,8 @@ Jobs (API, MCP, and agent run **in parallel**; FE waits on API; copilot waits on
 | **Copilot build + deploy** | `copilot/Dockerfile` → AR → deploy with `LANGGRAPH_URL` + graph id |
 | **Frontend** | `yarn build` with `VITE_API_ORIGIN` → GCS upload |
 
+Node images (`server`, `mcp`, `copilot`) build from the **repo root**. Yarn 4 metadata (`package.json`, `yarn.lock`, `.yarnrc.yml`) lives there, and none of those workspaces depend on another via `workspace:`. Each Dockerfile runs `yarn workspaces focus <name>` so the image installs only that package. Focus is not `--production`: the API runs through `ts-node` and MCP through `tsx`, both devDependencies. Copilot's Next build also needs its devDependencies, then the runner uses the standalone output. The Python `agent/` image is not part of the Yarn workspace. The workflow context stays the repo root (`.dockerignore` already drops `node_modules`, git, and Terraform state).
+
 Auth is **Workload Identity Federation** on every job (no JSON key).
 
 ### One-time GitHub / GCP setup
