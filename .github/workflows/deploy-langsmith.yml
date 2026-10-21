@@ -48,7 +48,7 @@ jobs:
         # Every non-reserved key becomes a deployment secret; LANGSMITH_* tracing
         # vars are reserved and injected by the platform.
         env:
-          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           GOOGLE_CLOUD_PROJECT: ${{ vars.GOOGLE_CLOUD_PROJECT }}
           GOOGLE_CLOUD_LOCATION: ${{ vars.GOOGLE_CLOUD_LOCATION || 'us-central1' }}
           TODO_MCP_URL: ${{ vars.TODO_MCP_URL }}
@@ -60,7 +60,7 @@ jobs:
           LANGSMITH_AGENT_ID: ${{ vars.LANGSMITH_AGENT_ID }}
         run: |
           set -euo pipefail
-          for v in LANGSMITH_API_KEY GOOGLE_API_KEY GOOGLE_CLOUD_PROJECT TODO_MCP_URL ENV HOSTING LANGSMITH_AGENT_ID; do
+          for v in LANGSMITH_API_KEY GOOGLE_SERVICE_ACCOUNT_JSON GOOGLE_CLOUD_PROJECT TODO_MCP_URL ENV HOSTING LANGSMITH_AGENT_ID; do
             if [ -z "${!v:-}" ]; then echo "::error::${v} is not set in the langsmith environment"; exit 1; fi
           done
           # Map our ENV → LangSmith Agent environment (fixed set; no "sandbox").
@@ -74,24 +74,44 @@ jobs:
               ;;
           esac
           LABEL="${ENV}-${HOSTING}"
+          export LABEL
           {
             echo "env_label=${LABEL}"
             echo "agent_environment=${AGENT_ENVIRONMENT}"
             echo "agent_id=${LANGSMITH_AGENT_ID}"
           } >> "$GITHUB_OUTPUT"
           umask 077
-          {
-            # Vertex-restricted GOOGLE_API_KEY (aiplatform) — not AI Studio.
-            echo "GOOGLE_GENAI_USE_VERTEXAI=true"
-            echo "GOOGLE_CLOUD_PROJECT=${GOOGLE_CLOUD_PROJECT}"
-            echo "GOOGLE_CLOUD_LOCATION=${GOOGLE_CLOUD_LOCATION}"
-            echo "GOOGLE_API_KEY=${GOOGLE_API_KEY}"
-            echo "TODO_MCP_URL=${TODO_MCP_URL}"
-            echo "GEMINI_MODEL=${GEMINI_MODEL}"
-            echo "ENVIRONMENT=${LABEL}"
-            echo "APP_ENV=${LABEL}"
-            if [ -n "${AGENT_TZ}" ]; then echo "AGENT_TZ=${AGENT_TZ}"; fi
-          } > config/.env.langsmith
+          # Vertex via SA JSON → ADC (LangSmith has no GCP identity). Base64 for .env safety.
+          python3 <<'PY'
+          import base64, json, os
+          from pathlib import Path
+
+          raw = os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"].strip()
+          try:
+              json.loads(raw)
+              b64 = base64.b64encode(raw.encode()).decode("ascii")
+          except json.JSONDecodeError:
+              base64.b64decode(raw, validate=True)
+              b64 = raw
+
+          def line(k, v):
+              return f"{k}={v}\n"
+
+          rows = [
+              line("GOOGLE_GENAI_USE_VERTEXAI", "true"),
+              line("GOOGLE_CLOUD_PROJECT", os.environ["GOOGLE_CLOUD_PROJECT"]),
+              line("GOOGLE_CLOUD_LOCATION", os.environ.get("GOOGLE_CLOUD_LOCATION") or "us-central1"),
+              line("GOOGLE_SERVICE_ACCOUNT_JSON", b64),
+              line("TODO_MCP_URL", os.environ["TODO_MCP_URL"]),
+              line("GEMINI_MODEL", os.environ.get("GEMINI_MODEL") or "gemini-2.5-flash"),
+              line("ENVIRONMENT", os.environ["LABEL"]),
+              line("APP_ENV", os.environ["LABEL"]),
+          ]
+          tz = (os.environ.get("AGENT_TZ") or "").strip()
+          if tz:
+              rows.append(line("AGENT_TZ", tz))
+          Path("config/.env.langsmith").write_text("".join(rows), encoding="utf-8")
+          PY
 
       - name: langgraph deploy
         env:
@@ -203,7 +223,7 @@ jobs:
       GOOGLE_GENAI_USE_VERTEXAI: "true"
       GOOGLE_CLOUD_PROJECT: ${{ vars.GOOGLE_CLOUD_PROJECT }}
       GOOGLE_CLOUD_LOCATION: ${{ vars.GOOGLE_CLOUD_LOCATION || 'us-central1' }}
-      GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+      GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
       GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-2.5-flash' }}
       LANGSMITH_DEPLOYMENT_URL: ${{ needs.deploy-langsmith.outputs.deployment_url }}
       ENVIRONMENT: ${{ needs.deploy-langsmith.outputs.env_label }}
