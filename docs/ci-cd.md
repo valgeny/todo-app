@@ -98,6 +98,7 @@ GitHub **Environment** `langsmith`:
 | Variable | `LANGSMITH_DEPLOYMENT_NAME` | Optional; default `todo-agent` |
 | Variable | `LANGSMITH_DEPLOYMENT_TYPE` | Optional; `serverless` (default) or `dedicated`; only used on create |
 | Variable | `GEMINI_MODEL` / `AGENT_TZ` | Optional |
+| Variable | `ENV` / `HOSTING` | Required; written as `ENVIRONMENT`/`APP_ENV`=`{ENV}-{HOSTING}` (e.g. `sandbox-managed`) |
 
 Local equivalent (from `agent/`, with `LANGSMITH_API_KEY` exported and `config/.env.langsmith` filled in):
 
