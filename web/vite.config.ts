@@ -56,7 +56,12 @@ export default defineConfig(({ mode }) => {
     ? `https://${codespaceName}-${apiPort}.${forwardingDomain}`
     : apiOrigin;
 
+  // GCS object URLs (…/bucket/index.html) need relative asset paths; default "/"
+  // breaks because the browser requests storage.googleapis.com/assets/….
+  const base = process.env.VITE_BASE ?? '/';
+
   return {
+    base,
     plugins: [react()],
     define: {
       'import.meta.env.VITE_API_ORIGIN': JSON.stringify(resolvedApiOrigin)

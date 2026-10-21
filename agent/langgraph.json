@@ -1,0 +1,7 @@
+{
+  "dependencies": ["."],
+  "graphs": {
+    "todo_agent": "./src/todo_agent/studio.py:graph"
+  },
+  "env": "./config/.env.local2sandbox"
+}

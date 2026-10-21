@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, beforeEach, describe, it } from 'node:test';
 import { NotFoundError } from '@/errors';
-import { closeDb, createDataSource, initDb } from '@/providers/db';
 import {
   createTodo,
   deleteTodo,
@@ -10,6 +9,7 @@ import {
   setTodoCompleted,
   updateTodo
 } from '@/services/todoService';
+import { closeDb, createDataSource, initDb } from '@/storage';
 
 const positive = { tags: ['positive'] };
 const negative = { tags: ['negative'] };

@@ -7,16 +7,20 @@
   "workspaces": [
     "server",
     "web",
-    "mcp"
+    "mcp",
+    "copilot"
   ],
   "scripts": {
     "start": "yarn workspace server start",
     "dev:server": "yarn workspace server debug",
     "dev:web": "yarn workspace web dev",
     "dev:web:docker": "yarn workspace web dev:docker",
+    "dev:copilot": "yarn workspace copilot dev",
     "build": "yarn workspace web build",
+    "build:copilot": "yarn workspace copilot build",
     "openapi:build": "yarn workspace server openapi:build",
     "mcp": "node --import tsx mcp/src/index.ts",
+    "mcp:http": "yarn workspace mcp start:http",
     "mcp:inspect": "yarn workspace mcp inspect",
     "lint": "biome check .",
     "format": "biome check --write .",

@@ -1,0 +1,36 @@
+# -----------------------------------------------------------------------------
+# envs/sandbox.tfvars.example — sandbox app env
+#
+# Requires project stack (nonprod) already applied. Copy stack outputs below.
+#
+#   terraform -chdir=env init -reconfigure -backend-config=backends/sandbox.hcl
+#   terraform -chdir=env apply -var-file=../envs/sandbox.tfvars
+# -----------------------------------------------------------------------------
+
+project_id  = "your-gcp-project-id"
+environment = "sandbox"
+region      = "us-central1"
+name_prefix = "todo"
+
+# From: terraform -chdir=stack output
+sql_instance_name                = "todo-nonprod-pg"
+sql_connection_name              = "your-gcp-project-id:us-central1:todo-nonprod-pg"
+artifact_registry_repository_id  = "todo-nonprod-api"
+artifact_registry_location       = "us-central1"
+artifact_registry_name           = "todo-nonprod-api"
+deploy_sa_email                  = "gh-deploy-nonprod@your-gcp-project-id.iam.gserviceaccount.com"
+iap_oauth_client_id              = "xxxx.apps.googleusercontent.com"
+iap_oauth_client_secret          = "GOCSPX-xxxx"
+# Org-directory users only (Internal OAuth). Do not use @gmail.com here.
+iap_members = [
+  "user:you@your-org-domain.com",
+]
+
+# CORS_ORIGINS + DB_PASSWORD are managed; do not set DB_PASSWORD here.
+secret_env = {}
+
+# Agent + Chat UI hostnames (same LB IP). DNS A for both → agent_iap_ip after apply.
+agent_iap_host = "agent.example.com"
+copilot_host   = "copilot.example.com"
+# Licensed langgraph-api image (https://smith.langchain.com → API keys).
+agent_langsmith_api_key = "lsv2_pt_xxxx"

@@ -1,0 +1,32 @@
+# -----------------------------------------------------------------------------
+# envs/staging.tfvars.example — staging app env (same shape as sandbox)
+#
+# Requires project stack (nonprod) already applied.
+#
+#   terraform -chdir=env init -reconfigure -backend-config=backends/staging.hcl
+#   terraform -chdir=env apply -var-file=../envs/staging.tfvars
+# -----------------------------------------------------------------------------
+
+project_id  = "your-gcp-project-id"
+environment = "staging"
+region      = "us-central1"
+name_prefix = "todo"
+
+sql_instance_name               = "todo-nonprod-pg"
+sql_connection_name             = "your-gcp-project-id:us-central1:todo-nonprod-pg"
+artifact_registry_repository_id = "todo-nonprod-api"
+artifact_registry_location      = "us-central1"
+artifact_registry_name          = "todo-nonprod-api"
+deploy_sa_email                 = "gh-deploy-nonprod@your-gcp-project-id.iam.gserviceaccount.com"
+iap_oauth_client_id             = "xxxx.apps.googleusercontent.com"
+iap_oauth_client_secret         = "GOCSPX-xxxx"
+# Org-directory users only (Internal OAuth). Do not use @gmail.com here.
+iap_members = [
+  "user:you@your-org-domain.com",
+]
+
+secret_env = {}
+
+agent_iap_host = "agent-staging.example.com"
+copilot_host   = "copilot-staging.example.com"
+agent_langsmith_api_key     = "lsv2_pt_xxxx"
