@@ -1,0 +1,34 @@
+name: Setup Node and Yarn
+description: >
+  Install Node 24, enable the Corepack Yarn 4 pin, then restore the Yarn cache.
+  Corepack must run before the cache lookup: GitHub runners ship Yarn 1.22 at
+  /usr/local/bin/yarn, and setup-node calls `yarn --version` while caching.
+  Yarn 1 exits when packageManager asks for Yarn 4.
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v5
+      with:
+        node-version: 24
+
+    - name: Enable Corepack
+      shell: bash
+      run: corepack enable && corepack install
+      env:
+        COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+
+    - name: Cache Yarn dependencies
+      uses: actions/setup-node@v5
+      with:
+        node-version: 24
+        cache: yarn
+      env:
+        COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+
+    - name: Install dependencies
+      shell: bash
+      run: yarn install --immutable
+      env:
+        COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
