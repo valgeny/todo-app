@@ -13,7 +13,7 @@ import {
   ToggleButtonGroup,
   Typography
 } from '@mui/material';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { TodoCard } from '@/components/TodoCard';
 import {
   createTodo,
@@ -64,16 +64,31 @@ export function App() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const loadSeq = useRef(0);
+  const statusRef = useRef(status);
+  const sortRef = useRef(sort);
+  statusRef.current = status;
+  sortRef.current = sort;
 
   const load = useCallback(async (nextStatus: TodoStatus, nextSort: TodoSort) => {
+    const seq = ++loadSeq.current;
     setLoading(true);
     setError(null);
     try {
-      setTodos(await listTodos(nextStatus, nextSort));
+      const next = await listTodos(nextStatus, nextSort);
+      if (seq !== loadSeq.current) {
+        return;
+      }
+      setTodos(next);
     } catch (err) {
+      if (seq !== loadSeq.current) {
+        return;
+      }
       setError(err instanceof Error ? err.message : 'Could not load to-dos');
     } finally {
-      setLoading(false);
+      if (seq === loadSeq.current) {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -86,7 +101,7 @@ export function App() {
     setError(null);
     try {
       await action();
-      await load(status, sort);
+      await load(statusRef.current, sortRef.current);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Request failed');
     } finally {
