@@ -1,7 +1,8 @@
 name: Deploy LangSmith
 
 # Deploys the agent to LangSmith Deployments (managed Agent Server) with
-# `langgraph deploy`. Independent of deploy-gcp.yml (self-hosted Cloud Run agent).
+# `langgraph deploy`, then runs post-deploy evals against that deployment.
+# Independent of deploy-gcp.yml (self-hosted Cloud Run agent).
 # Config: GitHub Environment "langsmith" (see docs/ci-cd.md).
 
 on:
@@ -27,6 +28,10 @@ jobs:
     defaults:
       run:
         working-directory: agent
+    outputs:
+      deployment_url: ${{ steps.resolve.outputs.deployment_url }}
+      deployment_name: ${{ steps.resolve.outputs.deployment_name }}
+      env_label: ${{ steps.envfile.outputs.env_label }}
     env:
       LANGGRAPH_CLI_VERSION: "0.4.37"
       LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
@@ -38,6 +43,7 @@ jobs:
       - uses: astral-sh/setup-uv@v6
 
       - name: Write deployment env
+        id: envfile
         # Every non-reserved key becomes a deployment secret; LANGSMITH_* tracing
         # vars are reserved and injected by the platform.
         env:
@@ -54,6 +60,7 @@ jobs:
             if [ -z "${!v:-}" ]; then echo "::error::${v} is not set in the langsmith environment"; exit 1; fi
           done
           LABEL="${ENV}-${HOSTING}"
+          echo "env_label=${LABEL}" >> "$GITHUB_OUTPUT"
           umask 077
           {
             echo "GOOGLE_API_KEY=${GOOGLE_API_KEY}"
@@ -73,9 +80,121 @@ jobs:
             --deployment-type "${LANGSMITH_DEPLOYMENT_TYPE}" \
             --remote
 
-      - name: Summary
+      - name: Resolve deployment URL
+        id: resolve
         run: |
           set -euo pipefail
-          echo "### LangSmith" >> "$GITHUB_STEP_SUMMARY"
-          uvx --from "langgraph-cli==${LANGGRAPH_CLI_VERSION}" langgraph deploy list \
-            --name-contains "${LANGSMITH_DEPLOYMENT_NAME}" >> "$GITHUB_STEP_SUMMARY"
+          python3 <<'PY' >> "$GITHUB_OUTPUT"
+          import json, os, urllib.request
+          name = os.environ["LANGSMITH_DEPLOYMENT_NAME"]
+          req = urllib.request.Request(
+              "https://api.host.langchain.com/v2/deployments",
+              headers={"x-api-key": os.environ["LANGSMITH_API_KEY"]},
+          )
+          with urllib.request.urlopen(req) as resp:
+              payload = json.load(resp)
+          resources = payload.get("resources") or payload or []
+          match = next((r for r in resources if r.get("name") == name), None)
+          if not match:
+              raise SystemExit(f"Deployment not found: {name}")
+          url = match.get("url") or (match.get("source_config") or {}).get("custom_url")
+          if not url:
+              raise SystemExit(f"No URL on deployment payload keys={sorted(match.keys())}")
+          print(f"deployment_url={url}")
+          print(f"deployment_name={name}")
+          PY
+
+      - name: Summary
+        env:
+          DEPLOYMENT_URL: ${{ steps.resolve.outputs.deployment_url }}
+        run: |
+          set -euo pipefail
+          {
+            echo "### LangSmith deploy"
+            echo "- Name: \`${LANGSMITH_DEPLOYMENT_NAME}\`"
+            echo "- URL: ${DEPLOYMENT_URL}"
+            echo "- Label: \`${{ steps.envfile.outputs.env_label }}\`"
+            echo
+            uvx --from "langgraph-cli==${LANGGRAPH_CLI_VERSION}" langgraph deploy list \
+              --name-contains "${LANGSMITH_DEPLOYMENT_NAME}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  eval-langsmith:
+    name: Post-deploy eval
+    needs: deploy-langsmith
+    if: success()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: langsmith
+    defaults:
+      run:
+        working-directory: agent
+    env:
+      LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
+      GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+      LANGSMITH_DEPLOYMENT_URL: ${{ needs.deploy-langsmith.outputs.deployment_url }}
+      ENVIRONMENT: ${{ needs.deploy-langsmith.outputs.env_label }}
+      APP_ENV: ${{ needs.deploy-langsmith.outputs.env_label }}
+      TODO_EVAL_DATASET: ${{ vars.TODO_EVAL_DATASET || 'todo-agent-v1' }}
+      DATASET_SOURCE: ${{ vars.DATASET_SOURCE || 'repo' }}
+      EVAL_MIN_PASS_RATE: ${{ vars.EVAL_MIN_PASS_RATE || '0.8' }}
+      EVAL_MAX_CONCURRENCY: ${{ vars.EVAL_MAX_CONCURRENCY || '2' }}
+      EVAL_REPORT_DIR: evals/out
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Install agent (+ eval deps)
+        run: uv sync --extra dev
+
+      - name: Run remote eval
+        env:
+          EVAL_EXPERIMENT_PREFIX: todo-agent-${{ needs.deploy-langsmith.outputs.env_label }}-${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [ -z "${LANGSMITH_DEPLOYMENT_URL}" ]; then
+            echo "::error::deployment_url missing from deploy job"
+            exit 1
+          fi
+          uv run python evals/run_eval.py \
+            --name "${TODO_EVAL_DATASET}" \
+            --dataset-source "${DATASET_SOURCE}" \
+            --target remote \
+            --deployment-url "${LANGSMITH_DEPLOYMENT_URL}" \
+            --experiment-prefix "${EVAL_EXPERIMENT_PREFIX}" \
+            --max-concurrency "${EVAL_MAX_CONCURRENCY}" \
+            --report-dir "${EVAL_REPORT_DIR}"
+
+      - name: Upload eval report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: langsmith-eval-report
+          path: |
+            agent/evals/out/eval-report.html
+            agent/evals/out/eval-summary.json
+          if-no-files-found: warn
+
+      - name: Eval summary
+        if: always()
+        run: |
+          set -euo pipefail
+          {
+            echo "### Post-deploy eval"
+            echo "- Target: \`${LANGSMITH_DEPLOYMENT_URL}\`"
+            echo "- Dataset: \`${TODO_EVAL_DATASET}\` (source=\`${DATASET_SOURCE}\`)"
+            if [ -f evals/out/eval-summary.json ]; then
+              python3 - <<'PY'
+          import json
+          from pathlib import Path
+          s = json.loads(Path("evals/out/eval-summary.json").read_text())
+          print(f"- Overall pass rate: **{s.get('overall_pass_rate', 0):.3f}** ({s.get('n_scores', 0)} scores)")
+          url = s.get("experiment_url") or ""
+          if url:
+              print(f"- Experiment: {url}")
+          for k, m in (s.get("metrics") or {}).items():
+              print(f"- `{k}`: mean={m.get('mean')} pass_rate={m.get('pass_rate')}")
+          PY
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

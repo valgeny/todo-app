@@ -104,11 +104,17 @@ GitHub **Environment** `langsmith`:
 | Variable | `LANGSMITH_DEPLOYMENT_TYPE` | Optional; `serverless` (default) or `dedicated`; only used on create |
 | Variable | `GEMINI_MODEL` / `AGENT_TZ` | Optional |
 | Variable | `ENV` / `HOSTING` | Required; written as `ENVIRONMENT`/`APP_ENV`=`{ENV}-{HOSTING}` (e.g. `sandbox-managed`) |
+| Variable | `TODO_EVAL_DATASET` | Optional; default `todo-agent-v1` |
+| Variable | `DATASET_SOURCE` | Optional; `repo` (default, push goldens) or `langsmith` (remote only) |
+| Variable | `EVAL_MIN_PASS_RATE` | Optional; default `0.8` — fails the post-deploy eval job if below |
+
+After a successful deploy, job **Post-deploy eval** runs `evals/run_eval.py --target remote` against the deployment URL (RemoteGraph). Custom evaluators execute on the runner; results land in LangSmith and as the `langsmith-eval-report` artifact (`eval-report.html`).
 
 Local equivalent (from `agent/`, with `LANGSMITH_API_KEY` exported and `config/.env.langsmith` filled in):
 
 ```bash
 uvx --from langgraph-cli==0.4.37 langgraph deploy -c langgraph.langsmith.json --name todo-agent --remote
+uv run python evals/run_eval.py --target remote --deployment-url https://….us.langgraph.app --dataset-source repo
 ```
 
 ## GitHub Pages
