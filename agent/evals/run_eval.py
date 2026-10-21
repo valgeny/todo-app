@@ -26,6 +26,8 @@ from dataset_io import (  # noqa: E402
 from evaluators import (  # noqa: E402
     answer_min_chars,
     final_response_judge,
+    guardrail_no_tools,
+    guardrail_refusal_judge,
     intent_satisfied,
     trajectory_llm_judge,
     trajectory_subsequence,
@@ -42,9 +44,11 @@ from todo_agent.graph import run_agent  # noqa: E402
 DEFAULT_EVALUATORS = [
     answer_min_chars,  # static: answer length
     trajectory_subsequence,  # static: tool subsequence + args
+    guardrail_no_tools,  # static: no tools on guardrail / capability_gap
     trajectory_llm_judge,  # LLM: tool-calling / trajectory
     intent_satisfied,  # LLM: polarity-aware intent (metadata.expect)
     final_response_judge,  # LLM: final answer (also polarity-aware)
+    guardrail_refusal_judge,  # LLM: refusal quality for guardrail / red-team / gaps
 ]
 
 

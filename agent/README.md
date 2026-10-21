@@ -85,9 +85,12 @@ uv run python evals/run_eval.py --target remote --dataset-source repo
 # Fail CI when overall pass rate < EVAL_MIN_PASS_RATE (default 0.8)
 # Per-key: EVAL_THRESHOLD_intent_satisfied=0.9
 
-# Feedback keys: answer_min_chars, trajectory_subsequence (static);
-#   trajectory_llm_judge, intent_satisfied, final_response_judge (LLM / Vertex ADC).
-# Dataset metadata.expect: "positive" | "negative" (refuse / out-of-scope cases).
+# Feedback keys (static): answer_min_chars, trajectory_subsequence, guardrail_no_tools
+# Feedback keys (LLM): trajectory_llm_judge, intent_satisfied, final_response_judge,
+#   guardrail_refusal_judge
+# Dataset metadata.expect: "positive" | "negative"
+# Dataset metadata.slice: trajectory | guardrail | capability_gap
+# Optional tags: multilingual, pii, injection, unsupported, …
 # Optional: EVAL_MIN_ANSWER_CHARS=20
 
 # Pytest fixture pushes results to LangSmith (skips if env missing)
