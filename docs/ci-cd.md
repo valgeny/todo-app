@@ -100,10 +100,10 @@ GitHub **Environment** `langsmith`:
 | Secret | `LANGSMITH_API_KEY` | LangSmith API key with Deployments access |
 | Secret | `GOOGLE_API_KEY` | Gemini (AI Studio) key |
 | Variable | `TODO_MCP_URL` | Public MCP endpoint, e.g. `https://todo-sandbox-mcp-….run.app/mcp` |
-| Variable | `LANGSMITH_DEPLOYMENT_NAME` | Optional; default `todo-agent` |
+| Variable | `LANGSMITH_AGENT_ID` | Required; agent identifier (e.g. `todo-agent-53797888`), not display name |
 | Variable | `LANGSMITH_DEPLOYMENT_TYPE` | Optional; `serverless` (default) or `dedicated`; only used on create |
 | Variable | `GEMINI_MODEL` / `AGENT_TZ` | Optional |
-| Variable | `ENV` / `HOSTING` | Required; written as `ENVIRONMENT`/`APP_ENV`=`{ENV}-{HOSTING}` (e.g. `sandbox-managed`) |
+| Variable | `ENV` / `HOSTING` | Required; app label `ENVIRONMENT`/`APP_ENV`=`{ENV}-{HOSTING}`; `ENV` also maps to LangSmith Agent env (`sandbox`→`development`, `staging`→`staging`, `prod`→`production`) |
 | Variable | `TODO_EVAL_DATASET` | Optional; default `todo-agent-v1` |
 | Variable | `DATASET_SOURCE` | Optional; `repo` (default, push goldens) or `langsmith` (remote only) |
 | Variable | `EVAL_MIN_PASS_RATE` | Optional; default `0.8` — fails the post-deploy eval job if below |
