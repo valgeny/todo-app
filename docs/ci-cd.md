@@ -9,6 +9,7 @@ GitHub Actions pipelines, report publishing, and GitHub Pages.
 | **CI** | `.github/workflows/ci.yml` | Every `push`; `pull_request` targeting `main` |
 | **Linter** | `.github/workflows/linter.yml` | PRs targeting `main` (Biome via reviewdog, inline comments) |
 | **Deploy GCP** | `.github/workflows/deploy-gcp.yml` | Every `push`, or `workflow_dispatch` (WIF; no JSON key) |
+| **Deploy Cloud Run job** | `.github/workflows/deploy-cloudrun-job.yml` | Reusable (`workflow_call`); used by Deploy GCP |
 | **Deploy LangSmith** | `.github/workflows/deploy-langsmith.yml` | `push` touching `agent/**`, or `workflow_dispatch` |
 
 Concurrency is keyed by **event + branch** so a PR run cannot cancel the push that deploys Pages.
@@ -16,14 +17,14 @@ Concurrency is keyed by **event + branch** so a PR run cannot cancel the push th
 ## CI jobs
 
 ```text
-Build ──┐
+Lint ───┐
 OpenAPI ┼─→ (on push only) Publish reports → Deploy reports to GitHub Pages
 Test  ──┘
 ```
 
 | Job | What it does |
 | --- | --- |
-| **Build** | Install, lint, build web |
+| **Lint** | Install, lint, build web |
 | **OpenAPI** | `yarn openapi:build`; upload Redoc artifact |
 | **Test** | Integration + Playwright e2e; upload Allure and Playwright HTML artifacts |
 | **Publish reports** | Assemble Pages site (`latest` + unix timestamp slots); upload Pages artifact |
@@ -37,14 +38,16 @@ Those jobs run only when `github.event_name == 'push'`. The `github-pages` envir
 
 Workflow: `.github/workflows/deploy-gcp.yml`. Targets the **sandbox** env (`todo-sandbox-*`). Infra: apply **`stack/`** (nonprod) once, then **`env/`** with `envs/sandbox.tfvars` ([infra/README.md](../infra/README.md)). Agent IAP LB is Terraform-only; the workflow only builds/pushes the agent image.
 
+Cloud Run services call reusable [`.github/workflows/deploy-cloudrun-job.yml`](../.github/workflows/deploy-cloudrun-job.yml) (WIF auth, docker build/push, `gcloud run deploy`, optional health/Ready smoke).
+
 Jobs (API, MCP, and agent run **in parallel**; FE waits on API; copilot waits on agent):
 
 | Job | Action |
 | --- | --- |
-| **API build + deploy** | `server/Dockerfile` → AR → `gcloud run deploy` → `/health` |
+| **API build + deploy** | `server/Dockerfile` → AR → deploy → `/health` |
 | **MCP build + deploy** | `mcp/Dockerfile` → AR → deploy with `TODO_API_ORIGIN` from live API → `/health` |
-| **Agent build + deploy** | `agent/Dockerfile` → AR → deploy with `TODO_MCP_URL` from live MCP → Ready check (no public curl; IAP) |
-| **Copilot build + deploy** | `copilot/Dockerfile` → AR → deploy with `LANGGRAPH_URL` |
+| **Agent build + deploy** | `agent/Dockerfile` → AR → deploy with `TODO_MCP_URL` from live MCP → Ready check |
+| **Copilot build + deploy** | `copilot/Dockerfile` → AR → deploy with `LANGGRAPH_URL` + graph id |
 | **Frontend** | `yarn build` with `VITE_API_ORIGIN` → GCS upload |
 
 Auth is **Workload Identity Federation** on every job (no JSON key).
@@ -77,7 +80,7 @@ terraform -chdir=env output -raw mcp_endpoint
 | `API_CLOUD_RUN_SERVICE` / `API_IMAGE_NAME` | `todo-sandbox-api` |
 | `MCP_CLOUD_RUN_SERVICE` / `MCP_IMAGE_NAME` | `todo-sandbox-mcp` |
 | `AGENT_CLOUD_RUN_SERVICE` / `AGENT_IMAGE_NAME` | `todo-sandbox-agent` |
-| `COPILOT_CLOUD_RUN_SERVICE` / `COPILOT_IMAGE_NAME` | `todo-sandbox-copilot` (optional; workflow defaults to this) |
+| `COPILOT_CLOUD_RUN_SERVICE` / `COPILOT_IMAGE_NAME` | `todo-sandbox-copilot` |
 
 3. You do **not** need `GCP_SA_KEY`.
 4. Push any branch or **Actions → Deploy GCP → Run workflow**.

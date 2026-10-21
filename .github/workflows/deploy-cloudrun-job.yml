@@ -1,0 +1,120 @@
+name: Deploy Cloud Run job
+
+# Reusable job: build → Artifact Registry → gcloud run deploy (image only).
+# Runtime env, IAM, and ingress stay in Terraform; this job does not touch them.
+# Callers pass environment-scoped *var names*; this job reads vars.* after
+# attaching the GitHub Environment (required for sandbox WIF + service names).
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: GitHub Environment (e.g. sandbox)
+        type: string
+        required: true
+      dockerfile:
+        description: Path to Dockerfile (repo-relative)
+        type: string
+        required: true
+      context:
+        description: Docker build context (repo root for yarn workspaces)
+        type: string
+        required: false
+        default: '.'
+      image_name_var:
+        description: Environment var holding the AR image name (e.g. API_IMAGE_NAME)
+        type: string
+        required: true
+      service_name_var:
+        description: Environment var holding the Cloud Run service name
+        type: string
+        required: true
+      timeout_minutes:
+        type: number
+        required: false
+        default: 30
+    outputs:
+      service_uri:
+        description: Deployed Cloud Run service URL
+        value: ${{ jobs.deploy-cloudrun-job.outputs.service_uri }}
+      image_ref:
+        description: Pushed image reference (…:sha)
+        value: ${{ jobs.deploy-cloudrun-job.outputs.image_ref }}
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy-cloudrun-job:
+    name: Deploy
+    runs-on: ubuntu-24.04
+    timeout-minutes: ${{ fromJSON(inputs.timeout_minutes) }}
+    environment: ${{ inputs.environment }}
+    outputs:
+      service_uri: ${{ steps.deploy.outputs.service_uri }}
+      image_ref: ${{ steps.build.outputs.image_ref }}
+    env:
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      GCP_REGION: ${{ vars.GCP_REGION }}
+      AR_REPO: ${{ vars.AR_REPO }}
+      GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+      GCP_SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
+      IMAGE_NAME: ${{ vars[inputs.image_name_var] }}
+      SERVICE_NAME: ${{ vars[inputs.service_name_var] }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v3
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker "${GCP_REGION}-docker.pkg.dev" --quiet
+
+      - name: Resolve names
+        run: |
+          set -euo pipefail
+          for v in GCP_PROJECT_ID GCP_REGION AR_REPO GCP_WORKLOAD_IDENTITY_PROVIDER GCP_SERVICE_ACCOUNT IMAGE_NAME SERVICE_NAME; do
+            if [ -z "${!v:-}" ]; then
+              echo "::error::${v} is empty (check GitHub Environment '${{ inputs.environment }}' vars)"
+              exit 1
+            fi
+          done
+          echo "Image: ${IMAGE_NAME}"
+          echo "Service: ${SERVICE_NAME}"
+
+      - name: Build and push image
+        id: build
+        env:
+          IMAGE: ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/${{ env.IMAGE_NAME }}
+        run: |
+          set -euo pipefail
+          docker build --platform linux/amd64 -f "${{ inputs.dockerfile }}" \
+            -t "${IMAGE}:${GITHUB_SHA}" \
+            -t "${IMAGE}:latest" \
+            "${{ inputs.context }}"
+          docker push "${IMAGE}:${GITHUB_SHA}"
+          docker push "${IMAGE}:latest"
+          echo "image_ref=${IMAGE}:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy Cloud Run
+        id: deploy
+        env:
+          IMAGE_REF: ${{ steps.build.outputs.image_ref }}
+        run: |
+          set -euo pipefail
+          gcloud run deploy "${SERVICE_NAME}" \
+            --project="${GCP_PROJECT_ID}" \
+            --region="${GCP_REGION}" \
+            --image="${IMAGE_REF}" \
+            --quiet
+
+          SERVICE_URI=$(gcloud run services describe "${SERVICE_NAME}" \
+            --project="${GCP_PROJECT_ID}" \
+            --region="${GCP_REGION}" \
+            --format='value(status.url)')
+          echo "service_uri=${SERVICE_URI}" >> "$GITHUB_OUTPUT"
