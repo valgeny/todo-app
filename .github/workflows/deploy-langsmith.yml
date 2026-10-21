@@ -126,22 +126,35 @@ jobs:
                   return json.load(resp)
 
           # Prefer Host API deployments bound to this agent + environment.
+          # Agent-mode often returns agent=null; names look like a-*-{environment}-*.
           payload = get("https://api.host.langchain.com/v2/deployments")
           resources = payload.get("resources") or []
+          env_token = f"-{agent_env.lower()}-"
           match = None
           for r in resources:
               ag = r.get("agent") or {}
-              if not isinstance(ag, dict):
-                  continue
-              if ag.get("id") == agent_id or ag.get("agent_id") == agent_id:
+              if isinstance(ag, dict) and (ag.get("id") == agent_id or ag.get("agent_id") == agent_id):
                   env = (ag.get("environment") or ag.get("agent_environment") or "").upper()
                   if env == agent_env or not env:
                       match = r
                       if env == agent_env:
                           break
           if match is None:
-              # Fallback: newest deployment URL from list (agent-mode may omit agent block briefly).
-              with_url = [r for r in resources if r.get("url") or (r.get("source_config") or {}).get("custom_url")]
+              named = [
+                  r
+                  for r in resources
+                  if env_token in (r.get("name") or "").lower()
+                  and (r.get("url") or (r.get("source_config") or {}).get("custom_url"))
+              ]
+              if named:
+                  named.sort(key=lambda r: r.get("created_at") or "", reverse=True)
+                  match = named[0]
+          if match is None:
+              with_url = [
+                  r
+                  for r in resources
+                  if r.get("url") or (r.get("source_config") or {}).get("custom_url")
+              ]
               if len(with_url) == 1:
                   match = with_url[0]
           if match is None:
