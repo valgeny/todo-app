@@ -32,7 +32,7 @@ Test  ──┘
 
 ### Why Publish / Deploy are skipped on pull requests
 
-Those jobs run only when `github.event_name == 'push'`. The `github-pages` environment rejects deployments from `refs/pull/*/merge`. On a PR, look at the **push** run for the branch to see Pages publish/deploy.
+Those jobs run only when `github.event_name == 'push'`. The `github-pages` environment rejects deployments from `refs/pull/*/merge`. On a PR, look at the **push** run for the branch to see Pages publish/deploy. The environment's `*` branch policy does not match a `/` in the branch name, so a name like `cursor/yarn-4` is rejected until a policy such as `*/*` is added.
 
 ## Deploy GCP (Cloud Run API + MCP + agent + copilot + FE bucket)
 
@@ -49,6 +49,8 @@ Jobs (API, MCP, and agent run **in parallel**; FE waits on API; copilot waits on
 | **Agent build + deploy** | `agent/Dockerfile` → AR → deploy with `TODO_MCP_URL` from live MCP → Ready check |
 | **Copilot build + deploy** | `copilot/Dockerfile` → AR → deploy with `LANGGRAPH_URL` + graph id |
 | **Frontend** | `yarn build` with `VITE_API_ORIGIN` → GCS upload |
+
+Node images (`server`, `mcp`, `copilot`) build from the **repo root**. Yarn 4 metadata (`package.json`, `yarn.lock`, `.yarnrc.yml`) lives there, and none of those workspaces depend on another via `workspace:`. Each Dockerfile runs `yarn workspaces focus <name>` so the image installs only that package. Focus is not `--production`: the API runs through `ts-node` and MCP through `tsx`, both devDependencies. Copilot's Next build also needs its devDependencies, then the runner uses the standalone output. The Python `agent/` image is not part of the Yarn workspace. The workflow context stays the repo root (`.dockerignore` already drops `node_modules`, git, and Terraform state).
 
 Auth is **Workload Identity Federation** on every job (no JSON key).
 

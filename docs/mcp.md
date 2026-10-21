@@ -18,16 +18,17 @@ Input shapes follow the same Zod rules as the API (see OpenAPI / [API docs](api.
 ## Run
 
 ```bash
-# Terminal 1 — API (SQLite local)
+# Terminal 1 — API (SQLite local). Yarn 4 comes from Corepack (`packageManager`).
+corepack enable
 yarn install
 cp server/config/.env.example server/config/.env.local   # once
 yarn dev:server
 
 # Terminal 2 — MCP over stdio (for hosts / Inspector)
-yarn --silent mcp
+yarn mcp
 ```
 
-Optional: `TODO_API_ORIGIN=http://127.0.0.1:8080 yarn --silent mcp` when the API is on Docker port 8080. Use `--silent` (or the `node` host config below) so Yarn does not write banners to stdout.
+Optional: `TODO_API_ORIGIN=http://127.0.0.1:8080 yarn mcp` when the API is on Docker port 8080. Yarn 4 does not support Yarn 1's `--silent` flag; `yarn mcp` already keeps Yarn's own logs off stdout. Prefer the `node` host config below in editors.
 
 ## MCP Inspector (manual test)
 
@@ -56,7 +57,7 @@ Start with **`node`** (not `yarn`) so package-manager banners do not corrupt the
 }
 ```
 
-Prefer the `node` config above in hosts. From a shell, `yarn --silent mcp` keeps stdout clean for the protocol.
+Prefer the `node` config above in hosts. From a shell, `yarn mcp` keeps stdout clean for the protocol.
 
 ## Automated tests
 

@@ -88,13 +88,8 @@ jobs:
           workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
 
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 24
-          cache: yarn
-
-      - name: Install dependencies
-        run: yarn install --frozen-lockfile
+      - name: Setup Node.js and install
+        uses: ./.github/actions/setup-yarn
 
       - name: Build web (pointed at Cloud Run)
         env:

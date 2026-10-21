@@ -5,12 +5,13 @@ Install, configure, and run the API and UI — locally with SQLite or with Docke
 ## Prerequisites
 
 - Node.js 24+
-- Yarn classic
+- Corepack (included with Node 24; it installs the Yarn 4 version pinned in `package.json`)
 - Docker (optional; required for the Postgres compose stack)
 
 ## Install
 
 ```bash
+corepack enable
 yarn install
 ```
 

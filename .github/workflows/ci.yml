@@ -27,14 +27,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: 24
-          cache: yarn
-
-      - name: Install dependencies
-        run: yarn install --frozen-lockfile
+      - name: Setup Node.js and install
+        uses: ./.github/actions/setup-yarn
 
       - name: Prepare env files
         run: |
@@ -56,14 +50,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: 24
-          cache: yarn
-
-      - name: Install dependencies
-        run: yarn install --frozen-lockfile
+      - name: Setup Node.js and install
+        uses: ./.github/actions/setup-yarn
 
       - name: Build OpenAPI + Redoc
         run: yarn openapi:build
@@ -85,14 +73,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: 24
-          cache: yarn
-
-      - name: Install dependencies
-        run: yarn install --frozen-lockfile
+      - name: Setup Node.js and install
+        uses: ./.github/actions/setup-yarn
 
       - name: Prepare env files
         run: |
@@ -138,14 +120,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: 24
-          cache: yarn
-
-      - name: Install dependencies
-        run: yarn install --frozen-lockfile
+      - name: Setup Node.js and install
+        uses: ./.github/actions/setup-yarn
 
       - name: Download Allure report
         if: always()

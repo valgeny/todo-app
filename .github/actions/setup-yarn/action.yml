@@ -1,0 +1,52 @@
+name: Setup Node and Yarn
+description: >
+  Install Node 24, activate the Corepack Yarn 4 pin, cache the Yarn download
+  folder, and run yarn install --immutable.
+  setup-node must not look up a Yarn cache on its own. With packageManager set
+  to Yarn 4 it still runs `yarn --version` when package-manager-cache is left
+  on, and GitHub runners resolve that to Yarn 1.22 at /usr/local/bin/yarn,
+  which exits.
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v5
+      with:
+        node-version: 24
+        package-manager-cache: false
+
+    - name: Enable Corepack
+      id: corepack
+      shell: bash
+      run: |
+        set -euo pipefail
+        corepack enable
+        corepack install
+        hash -r
+        version="$(yarn --version)"
+        echo "yarn: $(command -v yarn) (${version})"
+        case "${version}" in
+          4.*) ;;
+          *)
+            echo "Expected Yarn 4 on PATH before install" >&2
+            exit 1
+            ;;
+        esac
+        echo "dir=$(yarn config get cacheFolder)" >> "$GITHUB_OUTPUT"
+      env:
+        COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+
+    - name: Cache Yarn
+      uses: actions/cache@v6
+      with:
+        path: ${{ steps.corepack.outputs.dir }}
+        key: yarn-v4-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+        restore-keys: |
+          yarn-v4-${{ runner.os }}-
+
+    - name: Install dependencies
+      shell: bash
+      run: yarn install --immutable
+      env:
+        COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
