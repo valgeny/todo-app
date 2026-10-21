@@ -71,11 +71,26 @@ def push_eval_to_langsmith(
             results = push_eval_to_langsmith(sync_local=True)
     """
 
-    def _run(*, sync_local: bool = True, experiment_prefix: str = "todo-agent-pytest"):
+    def _run(
+        *,
+        sync_local: bool = True,
+        experiment_prefix: str = "todo-agent-pytest",
+        target_mode: str | None = None,
+        dataset_source: str | None = None,
+        deployment_url: str | None = None,
+    ):
+        mode = target_mode or os.environ.get("EVAL_TARGET", "local")
+        source = dataset_source or (
+            "repo" if sync_local else os.environ.get("DATASET_SOURCE", "langsmith")
+        )
+        if sync_local and dataset_source is None:
+            source = "repo"
         return run_experiment(
             langsmith_client,
             dataset_name=dataset_name,
-            sync_local=sync_local,
+            dataset_source=source,
+            target_mode=mode,
+            deployment_url=deployment_url or os.environ.get("LANGSMITH_DEPLOYMENT_URL"),
             experiment_prefix=experiment_prefix,
         )
 

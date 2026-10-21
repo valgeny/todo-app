@@ -74,18 +74,29 @@ Local goldens live under [`evals/datasets/{name}/examples.json`](evals/datasets/
 uv run python evals/sync_dataset.py --name todo-agent-v1 --push --yes   # local wins
 uv run python evals/sync_dataset.py --name todo-agent-v1 --pull --yes   # remote wins
 
-# Run experiment (optional --sync pushes local first)
-uv run python evals/run_eval.py
-uv run python evals/run_eval.py --sync
+# Local experiment (in-process graph → MCP); --dataset-source repo pushes goldens first
+uv run python evals/run_eval.py --target local --dataset-source repo
 
-# Feedback keys: answer_min_chars, trajectory_subsequence (static);
-#   trajectory_llm_judge, intent_satisfied, final_response_judge (LLM / Vertex ADC).
-# Dataset metadata.expect: "positive" | "negative" (refuse / out-of-scope cases).
+# Post-deploy: hit a LangSmith Deployment (RemoteGraph); judges still run locally
+export LANGSMITH_DEPLOYMENT_URL=https://….us.langgraph.app
+uv run python evals/run_eval.py --target remote --dataset-source repo
+
+# Reports: evals/out/eval-report.html + eval-summary.json
+# Fail CI when overall pass rate < EVAL_MIN_PASS_RATE (default 0.8)
+# Per-key: EVAL_THRESHOLD_intent_satisfied=0.9
+
+# Feedback keys (static): answer_min_chars, trajectory_subsequence, guardrail_no_tools
+# Feedback keys (LLM): trajectory_llm_judge, intent_satisfied, final_response_judge,
+#   guardrail_refusal_judge
+# Dataset metadata.expect: "positive" | "negative"
+# Dataset metadata.slice: trajectory | guardrail | capability_gap
+# Optional tags: multilingual, pii, injection, unsupported, …
 # Optional: EVAL_MIN_ANSWER_CHARS=20
 
 # Pytest fixture pushes results to LangSmith (skips if env missing)
 uv sync --extra dev
 uv run pytest -m langsmith
+# Remote: EVAL_TARGET=remote LANGSMITH_DEPLOYMENT_URL=… uv run pytest -m langsmith
 ```
 
 ## Layout

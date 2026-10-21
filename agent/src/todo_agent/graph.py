@@ -12,6 +12,7 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, System
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.prebuilt import create_react_agent
 
+from todo_agent.google_auth import configure_google_credentials
 from todo_agent.mcp_tools import load_mcp_tools_from_url
 
 
@@ -44,21 +45,37 @@ def _dynamic_prompt(state: Any) -> list[BaseMessage]:
 
 
 def _build_llm(model_name: str | None = None) -> ChatGoogleGenerativeAI:
+    configure_google_credentials()
     model_id = model_name or os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
-    # Prefer API key; fall back to Vertex + ADC (gcloud auth application-default login).
     # Treat empty GOOGLE_API_KEY= as unset (common in dotenv files).
     api_key = (os.environ.get("GOOGLE_API_KEY") or "").strip()
-    if api_key:
-        return ChatGoogleGenerativeAI(model=model_id, temperature=0, api_key=api_key)
     project = os.environ.get("GOOGLE_CLOUD_PROJECT") or os.environ.get("GCLOUD_PROJECT")
     location = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
-    return ChatGoogleGenerativeAI(
-        model=model_id,
-        temperature=0,
-        vertexai=True,
-        project=project,
-        location=location,
+    has_adc = bool(
+        (os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") or "").strip()
+        or (os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON") or "").strip()
     )
+    use_vertex = (os.environ.get("GOOGLE_GENAI_USE_VERTEXAI") or "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    ) or (not api_key and bool(project))
+    # Vertex via ADC / SA JSON (LangSmith). Do not pass AI Studio api_key here.
+    if use_vertex:
+        return ChatGoogleGenerativeAI(
+            model=model_id,
+            temperature=0,
+            vertexai=True,
+            project=project,
+            location=location,
+        )
+    if not api_key and not has_adc:
+        raise RuntimeError(
+            "Set GOOGLE_API_KEY (AI Studio) or Vertex via GOOGLE_CLOUD_PROJECT + "
+            "ADC / GOOGLE_SERVICE_ACCOUNT_JSON"
+        )
+    return ChatGoogleGenerativeAI(model=model_id, temperature=0, api_key=api_key)
 
 
 async def build_agent_async(model_name: str | None = None):

@@ -179,11 +179,8 @@ def require_langsmith_env() -> None:
         raise SystemExit("Set LANGSMITH_API_KEY in agent/config/.env")
 
 
-def require_eval_env() -> None:
-    require_langsmith_env()
-    if not os.environ.get("TODO_MCP_URL"):
-        raise SystemExit("Set TODO_MCP_URL (MCP Streamable HTTP endpoint)")
-    # Empty GOOGLE_API_KEY= in dotenv should not block Vertex + ADC.
+def _ensure_gemini_auth() -> None:
+    """Empty GOOGLE_API_KEY= in dotenv should not block Vertex + ADC."""
     api_key = (os.environ.get("GOOGLE_API_KEY") or "").strip()
     if not api_key:
         os.environ.pop("GOOGLE_API_KEY", None)
@@ -207,3 +204,16 @@ def require_eval_env() -> None:
             "Set GOOGLE_API_KEY, or GOOGLE_CLOUD_PROJECT for Vertex + ADC "
             "(gcloud auth application-default login)"
         )
+
+
+def require_judge_env() -> None:
+    """LangSmith + Gemini for evaluators (no MCP — used for remote-target CI)."""
+    require_langsmith_env()
+    _ensure_gemini_auth()
+
+
+def require_eval_env() -> None:
+    """Full local eval: LangSmith + MCP + Gemini."""
+    require_judge_env()
+    if not os.environ.get("TODO_MCP_URL"):
+        raise SystemExit("Set TODO_MCP_URL (MCP Streamable HTTP endpoint)")

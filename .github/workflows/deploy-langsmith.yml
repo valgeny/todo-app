@@ -1,7 +1,8 @@
 name: Deploy LangSmith
 
 # Deploys the agent to LangSmith Deployments (managed Agent Server) with
-# `langgraph deploy`. Independent of deploy-gcp.yml (self-hosted Cloud Run agent).
+# `langgraph deploy`, then runs post-deploy evals against that deployment.
+# Independent of deploy-gcp.yml (self-hosted Cloud Run agent).
 # Config: GitHub Environment "langsmith" (see docs/ci-cd.md).
 
 on:
@@ -27,10 +28,15 @@ jobs:
     defaults:
       run:
         working-directory: agent
+    outputs:
+      deployment_url: ${{ steps.resolve.outputs.deployment_url }}
+      deployment_name: ${{ steps.resolve.outputs.deployment_name }}
+      env_label: ${{ steps.envfile.outputs.env_label }}
     env:
       LANGGRAPH_CLI_VERSION: "0.4.37"
       LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
-      LANGSMITH_DEPLOYMENT_NAME: ${{ vars.LANGSMITH_DEPLOYMENT_NAME || 'todo-agent' }}
+      # Agent-mode deploy (not --name): binds to Production/Staging/Development in the UI.
+      LANGSMITH_AGENT_ID: ${{ vars.LANGSMITH_AGENT_ID }}
       LANGSMITH_DEPLOYMENT_TYPE: ${{ vars.LANGSMITH_DEPLOYMENT_TYPE || 'serverless' }}
     steps:
       - uses: actions/checkout@v5
@@ -38,44 +44,250 @@ jobs:
       - uses: astral-sh/setup-uv@v6
 
       - name: Write deployment env
+        id: envfile
         # Every non-reserved key becomes a deployment secret; LANGSMITH_* tracing
         # vars are reserved and injected by the platform.
         env:
-          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          GOOGLE_CLOUD_PROJECT: ${{ vars.GOOGLE_CLOUD_PROJECT }}
+          GOOGLE_CLOUD_LOCATION: ${{ vars.GOOGLE_CLOUD_LOCATION || 'us-central1' }}
           TODO_MCP_URL: ${{ vars.TODO_MCP_URL }}
           GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-2.5-flash' }}
           AGENT_TZ: ${{ vars.AGENT_TZ }}
           # Label = {ENV}-{HOSTING}, e.g. sandbox-managed (Cloud Run: sandbox-selfhosted).
           ENV: ${{ vars.ENV }}
           HOSTING: ${{ vars.HOSTING }}
+          LANGSMITH_AGENT_ID: ${{ vars.LANGSMITH_AGENT_ID }}
         run: |
           set -euo pipefail
-          for v in LANGSMITH_API_KEY GOOGLE_API_KEY TODO_MCP_URL ENV HOSTING; do
+          for v in LANGSMITH_API_KEY GOOGLE_SERVICE_ACCOUNT_JSON GOOGLE_CLOUD_PROJECT TODO_MCP_URL ENV HOSTING LANGSMITH_AGENT_ID; do
             if [ -z "${!v:-}" ]; then echo "::error::${v} is not set in the langsmith environment"; exit 1; fi
           done
+          # Map our ENV → LangSmith Agent environment (fixed set; no "sandbox").
+          case "${ENV}" in
+            sandbox|development|dev) AGENT_ENVIRONMENT=development ;;
+            staging|stage) AGENT_ENVIRONMENT=staging ;;
+            prod|production) AGENT_ENVIRONMENT=production ;;
+            *)
+              echo "::error::ENV=${ENV} has no LangSmith agent-environment mapping (use sandbox|staging|prod)"
+              exit 1
+              ;;
+          esac
           LABEL="${ENV}-${HOSTING}"
-          umask 077
+          export LABEL
           {
-            echo "GOOGLE_API_KEY=${GOOGLE_API_KEY}"
-            echo "TODO_MCP_URL=${TODO_MCP_URL}"
-            echo "GEMINI_MODEL=${GEMINI_MODEL}"
-            echo "ENVIRONMENT=${LABEL}"
-            echo "APP_ENV=${LABEL}"
-            if [ -n "${AGENT_TZ}" ]; then echo "AGENT_TZ=${AGENT_TZ}"; fi
-          } > config/.env.langsmith
+            echo "env_label=${LABEL}"
+            echo "agent_environment=${AGENT_ENVIRONMENT}"
+            echo "agent_id=${LANGSMITH_AGENT_ID}"
+          } >> "$GITHUB_OUTPUT"
+          umask 077
+          # Vertex via SA JSON → ADC (LangSmith has no GCP identity). Base64 for .env safety.
+          python3 <<'PY'
+          import base64, json, os
+          from pathlib import Path
+
+          raw = os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"].strip()
+          try:
+              json.loads(raw)
+              b64 = base64.b64encode(raw.encode()).decode("ascii")
+          except json.JSONDecodeError:
+              base64.b64decode(raw, validate=True)
+              b64 = raw
+
+          def line(k, v):
+              return f"{k}={v}\n"
+
+          rows = [
+              line("GOOGLE_GENAI_USE_VERTEXAI", "true"),
+              line("GOOGLE_CLOUD_PROJECT", os.environ["GOOGLE_CLOUD_PROJECT"]),
+              line("GOOGLE_CLOUD_LOCATION", os.environ.get("GOOGLE_CLOUD_LOCATION") or "us-central1"),
+              line("GOOGLE_SERVICE_ACCOUNT_JSON", b64),
+              line("TODO_MCP_URL", os.environ["TODO_MCP_URL"]),
+              line("GEMINI_MODEL", os.environ.get("GEMINI_MODEL") or "gemini-2.5-flash"),
+              line("ENVIRONMENT", os.environ["LABEL"]),
+              line("APP_ENV", os.environ["LABEL"]),
+          ]
+          tz = (os.environ.get("AGENT_TZ") or "").strip()
+          if tz:
+              rows.append(line("AGENT_TZ", tz))
+          Path("config/.env.langsmith").write_text("".join(rows), encoding="utf-8")
+          PY
 
       - name: langgraph deploy
+        env:
+          AGENT_ENVIRONMENT: ${{ steps.envfile.outputs.agent_environment }}
         run: |
           set -euo pipefail
+          # Must use --agent-id + --agent-environment together; cannot combine with --name.
+          # See https://docs.langchain.com/langsmith/deploy-to-agent-environment
           uvx --from "langgraph-cli==${LANGGRAPH_CLI_VERSION}" langgraph deploy \
             -c langgraph.langsmith.json \
-            --name "${LANGSMITH_DEPLOYMENT_NAME}" \
+            --agent-id "${LANGSMITH_AGENT_ID}" \
+            --agent-environment "${AGENT_ENVIRONMENT}" \
             --deployment-type "${LANGSMITH_DEPLOYMENT_TYPE}" \
             --remote
 
-      - name: Summary
+      - name: Resolve deployment URL
+        id: resolve
+        env:
+          AGENT_ENVIRONMENT: ${{ steps.envfile.outputs.agent_environment }}
         run: |
           set -euo pipefail
-          echo "### LangSmith" >> "$GITHUB_STEP_SUMMARY"
-          uvx --from "langgraph-cli==${LANGGRAPH_CLI_VERSION}" langgraph deploy list \
-            --name-contains "${LANGSMITH_DEPLOYMENT_NAME}" >> "$GITHUB_STEP_SUMMARY"
+          python3 <<'PY' >> "$GITHUB_OUTPUT"
+          import json, os, urllib.request
+
+          agent_id = os.environ["LANGSMITH_AGENT_ID"]
+          agent_env = os.environ["AGENT_ENVIRONMENT"].upper()
+          key = os.environ["LANGSMITH_API_KEY"]
+
+          def get(url: str):
+              req = urllib.request.Request(url, headers={"x-api-key": key})
+              with urllib.request.urlopen(req) as resp:
+                  return json.load(resp)
+
+          # Prefer Host API deployments bound to this agent + environment.
+          # Agent-mode often returns agent=null; names look like a-*-{environment}-*.
+          payload = get("https://api.host.langchain.com/v2/deployments")
+          resources = payload.get("resources") or []
+          env_token = f"-{agent_env.lower()}-"
+          match = None
+          for r in resources:
+              ag = r.get("agent") or {}
+              if isinstance(ag, dict) and (ag.get("id") == agent_id or ag.get("agent_id") == agent_id):
+                  env = (ag.get("environment") or ag.get("agent_environment") or "").upper()
+                  if env == agent_env or not env:
+                      match = r
+                      if env == agent_env:
+                          break
+          if match is None:
+              named = [
+                  r
+                  for r in resources
+                  if env_token in (r.get("name") or "").lower()
+                  and (r.get("url") or (r.get("source_config") or {}).get("custom_url"))
+              ]
+              if named:
+                  named.sort(key=lambda r: r.get("created_at") or "", reverse=True)
+                  match = named[0]
+          if match is None:
+              with_url = [
+                  r
+                  for r in resources
+                  if r.get("url") or (r.get("source_config") or {}).get("custom_url")
+              ]
+              if len(with_url) == 1:
+                  match = with_url[0]
+          if match is None:
+              summary = [(r.get("name"), r.get("agent")) for r in resources]
+              raise SystemExit(
+                  f"No deployment for agent_id={agent_id} environment={agent_env}; found={summary}"
+              )
+          url = match.get("url") or (match.get("source_config") or {}).get("custom_url")
+          name = match.get("name") or agent_id
+          if not url:
+              raise SystemExit(f"No URL on deployment keys={sorted(match.keys())}")
+          print(f"deployment_url={url}")
+          print(f"deployment_name={name}")
+          PY
+
+      - name: Summary
+        env:
+          DEPLOYMENT_URL: ${{ steps.resolve.outputs.deployment_url }}
+          AGENT_ENVIRONMENT: ${{ steps.envfile.outputs.agent_environment }}
+        run: |
+          set -euo pipefail
+          {
+            echo "### LangSmith deploy"
+            echo "- Agent: \`${LANGSMITH_AGENT_ID}\`"
+            echo "- Agent environment: \`${AGENT_ENVIRONMENT}\` (from ENV → LangSmith)"
+            echo "- App label: \`${{ steps.envfile.outputs.env_label }}\`"
+            echo "- URL: ${DEPLOYMENT_URL}"
+            echo
+            uvx --from "langgraph-cli==${LANGGRAPH_CLI_VERSION}" langgraph deploy list \
+              --agent-id "${LANGSMITH_AGENT_ID}" \
+              --agent-environment "${AGENT_ENVIRONMENT}" || true
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  eval-langsmith:
+    name: Post-deploy eval
+    needs: deploy-langsmith
+    if: success()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: langsmith
+    defaults:
+      run:
+        working-directory: agent
+    env:
+      LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
+      GOOGLE_GENAI_USE_VERTEXAI: "true"
+      GOOGLE_CLOUD_PROJECT: ${{ vars.GOOGLE_CLOUD_PROJECT }}
+      GOOGLE_CLOUD_LOCATION: ${{ vars.GOOGLE_CLOUD_LOCATION || 'us-central1' }}
+      GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+      GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-2.5-flash' }}
+      LANGSMITH_DEPLOYMENT_URL: ${{ needs.deploy-langsmith.outputs.deployment_url }}
+      ENVIRONMENT: ${{ needs.deploy-langsmith.outputs.env_label }}
+      APP_ENV: ${{ needs.deploy-langsmith.outputs.env_label }}
+      TODO_EVAL_DATASET: ${{ vars.TODO_EVAL_DATASET || 'todo-agent-v1' }}
+      DATASET_SOURCE: ${{ vars.DATASET_SOURCE || 'repo' }}
+      EVAL_MIN_PASS_RATE: ${{ vars.EVAL_MIN_PASS_RATE || '0.8' }}
+      EVAL_MAX_CONCURRENCY: ${{ vars.EVAL_MAX_CONCURRENCY || '2' }}
+      EVAL_REPORT_DIR: evals/out
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Install agent (+ eval deps)
+        run: uv sync --extra dev
+
+      - name: Run remote eval
+        env:
+          EVAL_EXPERIMENT_PREFIX: todo-agent-${{ needs.deploy-langsmith.outputs.env_label }}-${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [ -z "${LANGSMITH_DEPLOYMENT_URL}" ]; then
+            echo "::error::deployment_url missing from deploy job"
+            exit 1
+          fi
+          uv run python evals/run_eval.py \
+            --name "${TODO_EVAL_DATASET}" \
+            --dataset-source "${DATASET_SOURCE}" \
+            --target remote \
+            --deployment-url "${LANGSMITH_DEPLOYMENT_URL}" \
+            --experiment-prefix "${EVAL_EXPERIMENT_PREFIX}" \
+            --max-concurrency "${EVAL_MAX_CONCURRENCY}" \
+            --report-dir "${EVAL_REPORT_DIR}"
+
+      - name: Upload eval report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: langsmith-eval-report
+          path: |
+            agent/evals/out/eval-report.html
+            agent/evals/out/eval-summary.json
+          if-no-files-found: warn
+
+      - name: Eval summary
+        if: always()
+        run: |
+          set -euo pipefail
+          {
+            echo "### Post-deploy eval"
+            echo "- Target: \`${LANGSMITH_DEPLOYMENT_URL}\`"
+            echo "- Dataset: \`${TODO_EVAL_DATASET}\` (source=\`${DATASET_SOURCE}\`)"
+            if [ -f evals/out/eval-summary.json ]; then
+              python3 - <<'PY'
+          import json
+          from pathlib import Path
+          s = json.loads(Path("evals/out/eval-summary.json").read_text())
+          print(f"- Overall pass rate: **{s.get('overall_pass_rate', 0):.3f}** ({s.get('n_scores', 0)} scores)")
+          url = s.get("experiment_url") or ""
+          if url:
+              print(f"- Experiment: {url}")
+          for k, m in (s.get("metrics") or {}).items():
+              print(f"- `{k}`: mean={m.get('mean')} pass_rate={m.get('pass_rate')}")
+          PY
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
