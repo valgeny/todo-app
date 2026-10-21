@@ -49,7 +49,7 @@ jobs:
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           TODO_MCP_URL: ${{ vars.TODO_MCP_URL }}
-          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-2.5-flash' }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-3.8-flash' }}
           AGENT_TZ: ${{ vars.AGENT_TZ }}
           # Label = {ENV}-{HOSTING}, e.g. sandbox-managed (Cloud Run: sandbox-selfhosted).
           ENV: ${{ vars.ENV }}

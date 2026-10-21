@@ -44,7 +44,7 @@ def _dynamic_prompt(state: Any) -> list[BaseMessage]:
 
 
 def _build_llm(model_name: str | None = None) -> ChatGoogleGenerativeAI:
-    model_id = model_name or os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+    model_id = model_name or os.environ.get("GEMINI_MODEL", "gemini-3.8-flash")
     # Prefer API key; fall back to Vertex + ADC (gcloud auth application-default login).
     # Treat empty GOOGLE_API_KEY= as unset (common in dotenv files).
     api_key = (os.environ.get("GOOGLE_API_KEY") or "").strip()
