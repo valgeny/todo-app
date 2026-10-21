@@ -32,7 +32,7 @@ Test  ──┘
 
 ### Why Publish / Deploy are skipped on pull requests
 
-Those jobs run only when `github.event_name == 'push'`. The `github-pages` environment rejects deployments from `refs/pull/*/merge`. On a PR, look at the **push** run for the branch to see Pages publish/deploy.
+Those jobs run only when `github.event_name == 'push'`. The `github-pages` environment rejects deployments from `refs/pull/*/merge`. On a PR, look at the **push** run for the branch to see Pages publish/deploy. The environment's `*` branch policy does not match a `/` in the branch name, so a name like `cursor/yarn-4` is rejected until a policy such as `*/*` is added.
 
 ## Deploy GCP (Cloud Run API + MCP + agent + copilot + FE bucket)
 
