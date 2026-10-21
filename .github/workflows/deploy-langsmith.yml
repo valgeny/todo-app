@@ -45,16 +45,22 @@ jobs:
           TODO_MCP_URL: ${{ vars.TODO_MCP_URL }}
           GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-2.5-flash' }}
           AGENT_TZ: ${{ vars.AGENT_TZ }}
+          # Label = {ENV}-{HOSTING}, e.g. sandbox-managed (Cloud Run: sandbox-selfhosted).
+          ENV: ${{ vars.ENV }}
+          HOSTING: ${{ vars.HOSTING }}
         run: |
           set -euo pipefail
-          for v in LANGSMITH_API_KEY GOOGLE_API_KEY TODO_MCP_URL; do
+          for v in LANGSMITH_API_KEY GOOGLE_API_KEY TODO_MCP_URL ENV HOSTING; do
             if [ -z "${!v:-}" ]; then echo "::error::${v} is not set in the langsmith environment"; exit 1; fi
           done
+          LABEL="${ENV}-${HOSTING}"
           umask 077
           {
             echo "GOOGLE_API_KEY=${GOOGLE_API_KEY}"
             echo "TODO_MCP_URL=${TODO_MCP_URL}"
             echo "GEMINI_MODEL=${GEMINI_MODEL}"
+            echo "ENVIRONMENT=${LABEL}"
+            echo "APP_ENV=${LABEL}"
             if [ -n "${AGENT_TZ}" ]; then echo "AGENT_TZ=${AGENT_TZ}"; fi
           } > config/.env.langsmith
 
