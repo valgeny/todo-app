@@ -49,8 +49,10 @@ jobs:
         # vars are reserved and injected by the platform.
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GOOGLE_CLOUD_PROJECT: ${{ vars.GOOGLE_CLOUD_PROJECT }}
+          GOOGLE_CLOUD_LOCATION: ${{ vars.GOOGLE_CLOUD_LOCATION || 'us-central1' }}
           TODO_MCP_URL: ${{ vars.TODO_MCP_URL }}
-          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-3.8-flash' }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-2.5-flash' }}
           AGENT_TZ: ${{ vars.AGENT_TZ }}
           # Label = {ENV}-{HOSTING}, e.g. sandbox-managed (Cloud Run: sandbox-selfhosted).
           ENV: ${{ vars.ENV }}
@@ -58,7 +60,7 @@ jobs:
           LANGSMITH_AGENT_ID: ${{ vars.LANGSMITH_AGENT_ID }}
         run: |
           set -euo pipefail
-          for v in LANGSMITH_API_KEY GOOGLE_API_KEY TODO_MCP_URL ENV HOSTING LANGSMITH_AGENT_ID; do
+          for v in LANGSMITH_API_KEY GOOGLE_API_KEY GOOGLE_CLOUD_PROJECT TODO_MCP_URL ENV HOSTING LANGSMITH_AGENT_ID; do
             if [ -z "${!v:-}" ]; then echo "::error::${v} is not set in the langsmith environment"; exit 1; fi
           done
           # Map our ENV → LangSmith Agent environment (fixed set; no "sandbox").
@@ -79,6 +81,10 @@ jobs:
           } >> "$GITHUB_OUTPUT"
           umask 077
           {
+            # Vertex-restricted GOOGLE_API_KEY (aiplatform) — not AI Studio.
+            echo "GOOGLE_GENAI_USE_VERTEXAI=true"
+            echo "GOOGLE_CLOUD_PROJECT=${GOOGLE_CLOUD_PROJECT}"
+            echo "GOOGLE_CLOUD_LOCATION=${GOOGLE_CLOUD_LOCATION}"
             echo "GOOGLE_API_KEY=${GOOGLE_API_KEY}"
             echo "TODO_MCP_URL=${TODO_MCP_URL}"
             echo "GEMINI_MODEL=${GEMINI_MODEL}"
@@ -181,7 +187,11 @@ jobs:
         working-directory: agent
     env:
       LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
+      GOOGLE_GENAI_USE_VERTEXAI: "true"
+      GOOGLE_CLOUD_PROJECT: ${{ vars.GOOGLE_CLOUD_PROJECT }}
+      GOOGLE_CLOUD_LOCATION: ${{ vars.GOOGLE_CLOUD_LOCATION || 'us-central1' }}
       GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+      GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-2.5-flash' }}
       LANGSMITH_DEPLOYMENT_URL: ${{ needs.deploy-langsmith.outputs.deployment_url }}
       ENVIRONMENT: ${{ needs.deploy-langsmith.outputs.env_label }}
       APP_ENV: ${{ needs.deploy-langsmith.outputs.env_label }}

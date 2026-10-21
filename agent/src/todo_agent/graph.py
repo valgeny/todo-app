@@ -44,21 +44,30 @@ def _dynamic_prompt(state: Any) -> list[BaseMessage]:
 
 
 def _build_llm(model_name: str | None = None) -> ChatGoogleGenerativeAI:
-    model_id = model_name or os.environ.get("GEMINI_MODEL", "gemini-3.8-flash")
-    # Prefer API key; fall back to Vertex + ADC (gcloud auth application-default login).
+    model_id = model_name or os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
     # Treat empty GOOGLE_API_KEY= as unset (common in dotenv files).
     api_key = (os.environ.get("GOOGLE_API_KEY") or "").strip()
-    if api_key:
-        return ChatGoogleGenerativeAI(model=model_id, temperature=0, api_key=api_key)
     project = os.environ.get("GOOGLE_CLOUD_PROJECT") or os.environ.get("GCLOUD_PROJECT")
     location = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
-    return ChatGoogleGenerativeAI(
-        model=model_id,
-        temperature=0,
-        vertexai=True,
-        project=project,
-        location=location,
-    )
+    use_vertex = (os.environ.get("GOOGLE_GENAI_USE_VERTEXAI") or "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    ) or (not api_key and bool(project))
+    # Vertex (API key restricted to aiplatform, or ADC). Else AI Studio API key.
+    if use_vertex:
+        kwargs: dict = {
+            "model": model_id,
+            "temperature": 0,
+            "vertexai": True,
+            "project": project,
+            "location": location,
+        }
+        if api_key:
+            kwargs["api_key"] = api_key
+        return ChatGoogleGenerativeAI(**kwargs)
+    return ChatGoogleGenerativeAI(model=model_id, temperature=0, api_key=api_key)
 
 
 async def build_agent_async(model_name: str | None = None):
